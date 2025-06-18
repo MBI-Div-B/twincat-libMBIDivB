@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Refactors>
+  <Renames>
+    <RenamedType>
+      <Type guid="b513db38-da5d-4cd1-bcee-622275ff067a">FLOWMETER</Type>
+      <From>FlowMeter</From>
+      <To>ReedFlowMeter</To>
+    </RenamedType>
+  </Renames>
+</Refactors>

@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="CounterTimer" Id="{538a4290-1fe2-4f16-8415-445ed81e1156}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK CounterTimer
+VAR_INPUT
+	fValue : REAL;
+END_VAR
+VAR
+	values: ARRAY[0 .. globals.MAX_BUFFER_LENGTH] OF REAL;
+	fValueSum: REAL := 0;
+	fValueAverage: REAL := 0;
+	
+	nScanTotal: UDINT := 1;
+	nLatencyCycles: UDINT := 0;
+	nAccumCycles: UDINT := 100;
+	
+	nScanIndex: UDINT := 0;
+	nWaitIndex: UDINT := 0;
+	nAccumIndex: UDINT := 0;
+	
+	eState: CounterState:=CounterState.STOP;
+	nState: INT; // for pyads, since it can't read the enum value properly
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Value counter and buffer. Performs consecutive measurements with
+// configurable integration time and delay between measurements.
+
+ProcessValue(fValue);
+nState := eState;
+]]></ST>
+    </Implementation>
+    <Method Name="PrepareMeasurement" Id="{b0ddb6e3-5a83-4b0b-aa50-e0a4e6428f6d}">
+      <Declaration><![CDATA[METHOD PrepareMeasurement
+VAR_INPUT
+	nAccumMilliseconds: UDINT;
+	nDelayMilliseconds: UDINT;
+	nMeasurements: UDINT;
+END_VAR
+VAR
+	nCyclesPerMillisecond: UDINT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// CycleTime is in multiples of 100 ns
+nCyclesPerMillisecond := 10_000 / _TaskInfo[GETCURTASKINDEXEX()].CycleTime;
+
+nScanTotal := LIMIT(1, nMeasurements, globals.MAX_BUFFER_LENGTH);
+nAccumCycles := MAX(1, nAccumMilliseconds * nCyclesPerMillisecond);
+nLatencyCycles := nDelayMilliseconds * nCyclesPerMillisecond;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ProcessValue" Id="{fcef7e0b-4b79-4ad0-9a17-31eb21a8b8aa}">
+      <Declaration><![CDATA[METHOD ProcessValue
+VAR_INPUT
+	fValue : REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// integrate values for given number of ticks, then store average
+// enter wait loop after storing
+
+IF eState = CounterState.MEASURE THEN
+	fValueSum := fValueSum + fValue;
+	nAccumIndex := nAccumIndex + 1;
+	fValueAverage := fValueSum / UDINT_TO_REAL(nAccumIndex);
+
+	IF nAccumIndex >= nAccumCycles THEN
+		values[nScanIndex] := fValueAverage;
+		nScanIndex := nScanIndex + 1;
+		nAccumIndex := 0;
+		fValueSum := 0;
+		
+		IF nScanIndex >= nScanTotal THEN
+			eState := CounterState.STOP;
+		ELSE
+			eState := CounterState.WAIT;
+			nWaitIndex := 0;	
+		END_IF
+	END_IF
+END_IF
+
+IF eState = CounterState.WAIT THEN
+	IF nWaitIndex >= nLatencyCycles THEN
+		eState := CounterState.MEASURE;			
+	ELSE
+		nWaitIndex := nWaitIndex + 1;
+	END_IF
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartBuffer" Id="{6adea8aa-27b8-4149-8c81-b4583f5d2607}">
+      <Declaration><![CDATA[METHOD StartBuffer
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eState := CounterState.MEASURE;
+nScanIndex := 0;
+nWaitIndex := 0;
+nAccumIndex := 0;
+fValueSum := 0;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StopBuffer" Id="{3921f370-7734-4c53-aee6-52fa9ffae7f6}">
+      <Declaration><![CDATA[METHOD StopBuffer
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eState := CounterState.STOP;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="CounterTimer">
+      <LineId Id="188" Count="2" />
+      <LineId Id="194" Count="1" />
+      <LineId Id="89" Count="0" />
+    </LineIds>
+    <LineIds Name="CounterTimer.PrepareMeasurement">
+      <LineId Id="11" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="12" Count="2" />
+    </LineIds>
+    <LineIds Name="CounterTimer.ProcessValue">
+      <LineId Id="50" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="3" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="20" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="24" Count="2" />
+      <LineId Id="29" Count="2" />
+      <LineId Id="34" Count="1" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="39" Count="1" />
+      <LineId Id="47" Count="2" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="CounterTimer.StartBuffer">
+      <LineId Id="11" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="CounterTimer.StopBuffer">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

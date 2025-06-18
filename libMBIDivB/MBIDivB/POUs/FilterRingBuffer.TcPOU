@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FilterRingBuffer" Id="{94027352-38a9-4eb6-a796-fa10fc741bdf}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FilterRingBuffer
+VAR CONSTANT
+	MAX_BUFFER_SIZE: UDINT := 1000;
+END_VAR
+VAR_OUTPUT
+	fRunningAverage: REAL;
+END_VAR
+VAR
+	buffer: ARRAY [0 .. MAX_BUFFER_SIZE] OF REAL;
+	nBufferSize: UDINT := 100;
+	nCurrentIndex: UDINT := 0;
+	nValidEntries: UDINT := 0;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+fRunningAverage := CalculateMean();]]></ST>
+    </Implementation>
+    <Method Name="CalculateMean" Id="{9f5d97ab-8aa6-4f29-a88c-55c2326a60c5}">
+      <Declaration><![CDATA[METHOD CalculateMean : REAL
+
+VAR
+	n: UDINT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CalculateMean := 0;
+FOR n := 0 TO nValidEntries DO
+	CalculateMean := CalculateMean + buffer[n];
+END_FOR
+
+CalculateMean := CalculateMean / UDINT_TO_REAL(nValidEntries);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetFilterSize" Id="{77173f9f-3666-468d-9f39-1ad4caea60f7}">
+      <Declaration><![CDATA[METHOD SetFilterSize
+VAR_INPUT
+	nFilterSize: UDINT;
+END_VAR
+VAR_OUTPUT
+	nNewFilterSize: UDINT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nBufferSize := MAX(1, MIN(nFilterSize, MAX_BUFFER_SIZE));
+nCurrentIndex := 0;
+nValidEntries := 0;
+nNewFilterSize := nBufferSize;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Store" Id="{97548236-75e4-4e9c-add2-f3288efd2c62}">
+      <Declaration><![CDATA[METHOD Store
+VAR_INPUT
+	fValue: REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[buffer[nCurrentIndex] := fValue;
+nCurrentIndex := (nCurrentIndex + 1) MOD nBufferSize;
+nValidEntries := MIN(nValidEntries + 1, nBufferSize);]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FilterRingBuffer">
+      <LineId Id="18" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FilterRingBuffer.CalculateMean">
+      <LineId Id="11" Count="0" />
+      <LineId Id="5" Count="2" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+    <LineIds Name="FilterRingBuffer.SetFilterSize">
+      <LineId Id="5" Count="0" />
+      <LineId Id="7" Count="1" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+    <LineIds Name="FilterRingBuffer.Store">
+      <LineId Id="5" Count="0" />
+      <LineId Id="7" Count="1" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

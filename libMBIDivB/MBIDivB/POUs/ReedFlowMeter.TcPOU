@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="ReedFlowMeter" Id="{b513db38-da5d-4cd1-bcee-622275ff067a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK ReedFlowMeter
+VAR CONSTANT
+	MAXLEN: UINT := 1000;
+	TIMEUNITSPERSECOND: LINT := 10_000_000; // 100 ns per step
+END_VAR
+VAR
+	fFrequencyToFlowScale: REAL := 0.28;
+	fFlowRate: REAL;
+	bReedSwitch AT %I*: BOOL;
+	nIndex: UINT;
+	timestamps: ARRAY [0..MAXLEN] OF ULINT;
+	nTimeNow: ULINT; // 100 ns per unit
+	nTriggerCount: UINT;
+	nLoopIndex: UINT;
+	trigger: R_TRIG;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// Koolance INS-FM19 flow meter
+// simple reed contact switch
+// frequency directly proportional to flow rate
+// typical frequencies are <30 Hz, so no fast counter required
+
+nTimeNow := F_GetSystemTime();
+trigger(CLK:=bReedSwitch);
+IF trigger.Q THEN
+	timestamps[nIndex] := nTimeNow;
+	nIndex := (nIndex + 1) MOD  MAXLEN;
+END_IF
+
+nTriggerCount := 0;
+FOR nLoopIndex := 0 TO MAXLEN DO
+	IF (ULINT_TO_LINT(nTimeNow) - ULINT_TO_LINT(timestamps[nLoopIndex])) < TIMEUNITSPERSECOND THEN
+		nTriggerCount := nTriggerCount + 1;
+	END_IF
+END_FOR
+
+fFlowRate := fFrequencyToFlowScale * nTriggerCount;]]></ST>
+    </Implementation>
+    <LineIds Name="ReedFlowMeter">
+      <LineId Id="9" Count="3" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="40" Count="1" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="42" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
