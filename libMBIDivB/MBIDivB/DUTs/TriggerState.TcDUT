@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <DUT Name="TriggerState" Id="{743077c5-5731-4fe8-b045-7b544d506422}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE TriggerState :
+(
+	STOPPED, DELAY, ACTIVE_LOW, ACTIVE_HIGH
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

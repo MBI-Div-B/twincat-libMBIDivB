@@ -6,6 +6,8 @@ VAR
 	Output AT %Q*: BOOL;
 	Start: BOOL := FALSE;
 	Active: BOOL := FALSE;
+	State: TriggerState := TriggerState.STOPPED;
+	TicksDelay: UINT := 0;
 	TicksHigh: UINT := 100;
 	TicksLow: UINT := 100;
 	NumTrigger: INT := 20;
@@ -19,64 +21,122 @@ END_VAR
 TicksLow := MAX(1, TicksLow);
 
 IF Start THEN
-	Active := TRUE;
 	Start := FALSE;
-	NumCurrent := 0;
+	IF TicksDelay > 0 THEN
+		setState(Target:=TriggerState.DELAY);
+	ELSE
+		setState(Target:=TriggerState.ACTIVE_HIGH);
+	END_IF	
 END_IF
 
 IF Stop THEN
-	Active := FALSE;
-	Output := FALSE;
 	Stop := FALSE;
+	setState(Target:=TriggerState.STOPPED);
 END_IF
 
-IF Active THEN
-	TickCount := TickCount + 1;
-	IF Output THEN
+TickCount := TickCount + 1;
+
+CASE State OF
+	TriggerState.DELAY:
+		IF TickCount >= TicksDelay THEN
+			setState(Target:=TriggerState.ACTIVE_HIGH);
+		END_IF
+		
+	TriggerState.ACTIVE_HIGH:
 		IF TickCount >= TicksHigh THEN
-			Output := FALSE;
-			TickCount := 0;
 			IF NumCurrent = NumTrigger THEN
-				Active := FALSE;
+				setState(Target:=TriggerState.STOPPED);
+			ELSE
+				setState(Target:=TriggerState.ACTIVE_LOW);
 			END_IF
 		END_IF
-	ELSE
+		
+	TriggerState.ACTIVE_LOW:
 		IF TickCount >= TicksLow THEN
 			NumCurrent := NumCurrent + 1;
-			Output := TRUE;
-			TickCount := 0;
+			setState(Target:=TriggerState.ACTIVE_HIGH);
 		END_IF
-	END_IF
-END_IF]]></ST>
+END_CASE
+
+]]></ST>
     </Implementation>
+    <Method Name="setState" Id="{94c1271d-1c01-4b3c-922b-4321ebc7ca06}">
+      <Declaration><![CDATA[METHOD setState
+VAR_INPUT
+	Target: TriggerState;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[CASE Target OF
+	TriggerState.STOPPED:
+		Output := FALSE;
+		Active := FALSE;
+		State := TriggerState.STOPPED;
+	TriggerState.DELAY:
+		Output := FALSE;
+		Active := TRUE;
+		State := TriggerState.DELAY;
+	TriggerState.ACTIVE_HIGH:
+		Output := TRUE;
+		Active := TRUE;
+		State := TriggerState.ACTIVE_HIGH;
+	TriggerState.ACTIVE_LOW:
+		Output := FALSE;
+		Active := TRUE;
+		State := TriggerState.ACTIVE_LOW; 
+END_CASE
+
+TickCount := 0;]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="MultiTrigger">
       <LineId Id="140" Count="0" />
       <LineId Id="142" Count="0" />
       <LineId Id="110" Count="0" />
       <LineId Id="85" Count="0" />
-      <LineId Id="111" Count="0" />
       <LineId Id="113" Count="0" />
-      <LineId Id="132" Count="0" />
+      <LineId Id="170" Count="1" />
+      <LineId Id="175" Count="1" />
+      <LineId Id="172" Count="0" />
       <LineId Id="112" Count="0" />
       <LineId Id="134" Count="0" />
       <LineId Id="133" Count="0" />
       <LineId Id="135" Count="0" />
-      <LineId Id="138" Count="0" />
-      <LineId Id="143" Count="0" />
+      <LineId Id="196" Count="0" />
       <LineId Id="136" Count="0" />
-      <LineId Id="86" Count="1" />
-      <LineId Id="95" Count="0" />
-      <LineId Id="114" Count="1" />
-      <LineId Id="117" Count="0" />
-      <LineId Id="119" Count="0" />
-      <LineId Id="129" Count="2" />
-      <LineId Id="118" Count="0" />
-      <LineId Id="120" Count="1" />
-      <LineId Id="124" Count="0" />
-      <LineId Id="126" Count="1" />
-      <LineId Id="123" Count="0" />
-      <LineId Id="116" Count="0" />
+      <LineId Id="178" Count="1" />
+      <LineId Id="160" Count="2" />
+      <LineId Id="164" Count="2" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="180" Count="0" />
+      <LineId Id="182" Count="0" />
+      <LineId Id="185" Count="2" />
+      <LineId Id="183" Count="0" />
+      <LineId Id="188" Count="0" />
+      <LineId Id="181" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="189" Count="0" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="190" Count="1" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="163" Count="0" />
+      <LineId Id="86" Count="0" />
       <LineId Id="51" Count="0" />
+    </LineIds>
+    <LineIds Name="MultiTrigger.setState">
+      <LineId Id="11" Count="1" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="15" Count="2" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="18" Count="2" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="21" Count="2" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="6" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>
