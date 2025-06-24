@@ -27,6 +27,9 @@
     <Compile Include="DUTs\CounterState.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DUTs\TriggerState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GVLs\globals.TcGVL">
       <SubType>Code</SubType>
       <LinkAlways>true</LinkAlways>
@@ -37,6 +40,9 @@
     <Compile Include="POUs\AnalogInput.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\AnalogOutput.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\CounterTimer.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -44,6 +50,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\MultiTrigger.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\getTaskCycleTime.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\RampCtrl.TcPOU">

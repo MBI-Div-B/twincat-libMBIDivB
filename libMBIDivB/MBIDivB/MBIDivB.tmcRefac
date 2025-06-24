@@ -6,5 +6,25 @@
       <From>FlowMeter</From>
       <To>ReedFlowMeter</To>
     </RenamedType>
+    <RenamedSymbol>
+      <Type guid="36cba5ce-0960-4b19-8ca3-8cafc9779ff4">AnalogOutput</Type>
+      <From>Setpoint</From>
+      <To>Setpoint</To>
+    </RenamedSymbol>
+    <RenamedSymbol>
+      <Type guid="36cba5ce-0960-4b19-8ca3-8cafc9779ff4">AnalogOutput</Type>
+      <From>ScaledMin</From>
+      <To>LimitMin</To>
+    </RenamedSymbol>
+    <RenamedSymbol>
+      <Type guid="36cba5ce-0960-4b19-8ca3-8cafc9779ff4">AnalogOutput</Type>
+      <From>ScaledMax</From>
+      <To>LimitMax</To>
+    </RenamedSymbol>
+    <RenamedType>
+      <Type guid="94c1271d-1c01-4b3c-922b-4321ebc7ca06">SETHIGH</Type>
+      <From>setHigh</From>
+      <To>setState</To>
+    </RenamedType>
   </Renames>
 </Refactors>
