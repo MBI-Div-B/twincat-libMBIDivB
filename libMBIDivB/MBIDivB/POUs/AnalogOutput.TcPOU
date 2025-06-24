@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="AnalogOutput" Id="{36cba5ce-0960-4b19-8ca3-8cafc9779ff4}" SpecialFunc="None">
+    <Declaration><![CDATA[(*
+:Description: Control analog output with a linear ramp.
+:Usage: Just call in MAIN loop. Internal parameters are intended to be set by ADS.
+:Relevant ADS Symbols:
+- Setpoint: the target value (rw)
+- RawScale: Conversion factor between voltage and raw value (default: 32768/10)
+- LimitMin: Minimum voltage allowed
+- LimitMax: Maximum voltage allowed
+- Ramp.MomentarySetpoint: the current output value (ro)
+- Ramp.SetpointReached: whether the ramp is finished or not
+- Ramp.Velocity: ramp speed in V/s
+*)
+
+FUNCTION_BLOCK AnalogOutput
+VAR
+	RawOutput AT %Q*: INT;
+	RawScale: REAL := 32768 / 10;
+	Setpoint: REAL := 0;
+	LimitMin: REAL := -10;
+	LimitMax: REAL := 10;
+	Ramp: RampCtrl;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Setpoint := LIMIT(Setpoint, LimitMin, LimitMax);
+Ramp(Target:=Setpoint);
+RawOutput := REAL_TO_INT(RawScale * Ramp.MomentarySetpoint);]]></ST>
+    </Implementation>
+    <LineIds Name="AnalogOutput">
+      <LineId Id="167" Count="1" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

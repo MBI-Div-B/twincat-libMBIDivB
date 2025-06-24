@@ -19,7 +19,7 @@ END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[IF NOT Initialized THEN  // initialization
-	CycleTimeSeconds := UDINT_TO_REAL(_TaskInfo[GETCURTASKINDEXEX()].CycleTime) / 10_000_000;
+	CycleTimeSeconds := UDINT_TO_REAL(getTaskCycleTime()) / 10_000_000;
 	Initialized := TRUE;
 END_IF
 
