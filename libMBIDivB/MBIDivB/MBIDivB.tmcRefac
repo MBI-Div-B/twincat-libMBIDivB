@@ -26,5 +26,10 @@
       <From>setHigh</From>
       <To>setState</To>
     </RenamedType>
+    <RenamedType>
+      <Type guid="8f47297c-0afb-4d60-8669-fafac41d2202">START</Type>
+      <From>start</From>
+      <To>startTrigger</To>
+    </RenamedType>
   </Renames>
 </Refactors>

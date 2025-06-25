@@ -24,12 +24,7 @@ TickCount := TickCount + 1;
 
 IF Start THEN
 	Start := FALSE;
-	NumCurrent := 0;
-	IF TicksDelay > 0 THEN
-		setState(Target:=TriggerState.DELAY);
-	ELSE
-		setState(Target:=TriggerState.ACTIVE_HIGH);
-	END_IF	
+	startTrigger();
 END_IF
 
 IF Stop THEN
@@ -90,15 +85,21 @@ END_CASE
 TickCount := 0;]]></ST>
       </Implementation>
     </Method>
-    <Method Name="start" Id="{8f47297c-0afb-4d60-8669-fafac41d2202}">
+    <Method Name="startTrigger" Id="{8f47297c-0afb-4d60-8669-fafac41d2202}">
       <Declaration><![CDATA[(*
 :Description: Public method to start trigger in case setting Start attribute directly is not possible.
 *)
-METHOD start
-
+METHOD PUBLIC startTrigger
+VAR_INPUT
+END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[Start := TRUE;]]></ST>
+        <ST><![CDATA[NumCurrent := 0;
+IF TicksDelay > 0 THEN
+	setState(Target:=TriggerState.DELAY);
+ELSE
+	setState(Target:=TriggerState.ACTIVE_HIGH);
+END_IF]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="MultiTrigger">
@@ -109,9 +110,6 @@ METHOD start
       <LineId Id="110" Count="0" />
       <LineId Id="85" Count="0" />
       <LineId Id="113" Count="0" />
-      <LineId Id="197" Count="0" />
-      <LineId Id="170" Count="1" />
-      <LineId Id="175" Count="1" />
       <LineId Id="172" Count="0" />
       <LineId Id="112" Count="0" />
       <LineId Id="134" Count="0" />
@@ -152,8 +150,9 @@ METHOD start
       <LineId Id="25" Count="0" />
       <LineId Id="6" Count="0" />
     </LineIds>
-    <LineIds Name="MultiTrigger.start">
-      <LineId Id="5" Count="0" />
+    <LineIds Name="MultiTrigger.startTrigger">
+      <LineId Id="18" Count="4" />
+      <LineId Id="17" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>
