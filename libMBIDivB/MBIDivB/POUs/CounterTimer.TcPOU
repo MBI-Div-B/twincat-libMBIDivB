@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="CounterTimer" Id="{538a4290-1fe2-4f16-8415-445ed81e1156}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK CounterTimer
 VAR_INPUT
@@ -42,7 +42,7 @@ VAR
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[// CycleTime is in multiples of 100 ns
-nCyclesPerMillisecond := 10_000 / _TaskInfo[GETCURTASKINDEXEX()].CycleTime;
+nCyclesPerMillisecond := 10_000 / getTaskCycleTime();
 
 nScanTotal := LIMIT(1, nMeasurements, globals.MAX_BUFFER_LENGTH);
 nAccumCycles := MAX(1, nAccumMilliseconds * nCyclesPerMillisecond);

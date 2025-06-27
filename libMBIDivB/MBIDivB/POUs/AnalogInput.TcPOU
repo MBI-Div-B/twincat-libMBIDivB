@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
   <POU Name="AnalogInput" Id="{ddb1358c-03c7-4f43-beb0-30b2435a5b4d}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK AnalogInput
 VAR
-	nMaxRawValue: REAL := 7812500;  // for 24 bit device, e.g. ELM300x - check manual
+	nMaxRawValue: DINT := 7812500;  // for 24 bit device, e.g. ELM300x - check manual
 	nRawValue AT %I*: DINT; // signed 32 bit integer representing full value range
 	fMaxVoltage: REAL := 10; // measurement range
 	valuebuffer: CounterTimer; // buffer for timed measurements
@@ -15,7 +15,7 @@ END_VAR
 
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[fVoltage := fMaxVoltage * DINT_TO_REAL(nRawValue) / nMaxRawValue;  
+      <ST><![CDATA[fVoltage := fMaxVoltage * DINT_TO_REAL(nRawValue) / DINT_TO_REAL(nMaxRawValue);  
 
 IF filterbuffer.nBufferSize <> nFilterSize THEN
 	nFilterSize := filterbuffer.SetFilterSize(nFilterSize);
