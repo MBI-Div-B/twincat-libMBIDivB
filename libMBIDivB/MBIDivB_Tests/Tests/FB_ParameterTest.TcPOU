@@ -27,9 +27,11 @@ METHOD PRIVATE OverridesSetArrayBounds
         <ST><![CDATA[
 TEST('OverridesSetArrayBounds');
 
-AssertEquals_DINT(Expected := 4, Actual := UPPER_BOUND(Ct.Channel, 1), Message := 'CT_CHANNELS');
-AssertEquals_DINT(Expected := 1000, Actual := UPPER_BOUND(Ct.Channel[1].Data, 1), Message := 'CT_BUFFER_LENGTH');
-AssertEquals_DINT(Expected := 1000, Actual := UPPER_BOUND(Ao.Data, 1), Message := 'AO_WAVEFORM_LENGTH');
+// Element counts from the array sizes (UPPER_BOUND only works on
+// variable-length arrays in TwinCAT 3.1.4024).
+AssertEquals_UDINT(Expected := 4, Actual := TO_UDINT(SIZEOF(Ct.Channel) / SIZEOF(Ct.Channel[1])), Message := 'CT_CHANNELS');
+AssertEquals_UDINT(Expected := 1000, Actual := TO_UDINT(SIZEOF(Ct.Channel[1].Data) / SIZEOF(Ct.Channel[1].Data[1])), Message := 'CT_BUFFER_LENGTH');
+AssertEquals_UDINT(Expected := 1000, Actual := TO_UDINT(SIZEOF(Ao.Data) / SIZEOF(Ao.Data[1])), Message := 'AO_WAVEFORM_LENGTH');
 AssertEquals_UDINT(Expected := 100, Actual := MBIDivB.GVL_Param.FLOW_BUFFER_LENGTH, Message := 'FLOW_BUFFER_LENGTH');
 
 TEST_FINISHED();
