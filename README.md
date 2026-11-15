@@ -169,7 +169,10 @@ Read `GVL_LibInfo.Version` to check which library release runs on a PLC
 1. **Process data.** In the terminal's *Process Data* tab, select the
    predefined PDO assignment "Standard digital output with InfoData", then
    additionally enable the output PDO **0x1601** ("DOX Current",
-   0x7000:11 "Output current"). The terminal then has:
+   0x7000:11 "Output current"). Tick it *after* choosing the predefined
+   assignment, and check that the terminal shows a *DOX Current* entry in the
+   I/O tree; without it, `CurrentSetpoint` has nothing to link to. The
+   terminal then has:
 
    | PDO    | Entries                                         | Link to                |
    |--------|-------------------------------------------------|------------------------|
