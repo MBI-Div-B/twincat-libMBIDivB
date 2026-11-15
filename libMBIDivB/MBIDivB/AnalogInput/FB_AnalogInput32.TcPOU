@@ -1,0 +1,83 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_AnalogInput32" Id="{c74db1ed-4be8-4397-8b9a-8246f2f1e44f}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_AnalogInput32 - analog input channel of a 24/32-bit terminal (ELM3xxx)
+
+    Converts the signed 24/32-bit raw value of one terminal channel into
+    engineering units, provides a moving average, and reports the terminal's
+    status bits as errors.
+
+    I/O (link in the I/O configuration):
+        Raw            AT %I*  DINT   channel value
+        TerminalError  AT %I*  BOOL   optional, channel status bit "Error"
+        Overrange      AT %I*  BOOL   optional, channel status bit "Overrange"
+        Underrange     AT %I*  BOOL   optional, channel status bit "Underrange"
+    Unlinked status bits stay FALSE and never cause an error.
+
+    Use from ST:
+        // once, e.g. in the initialization part of MAIN
+        Ai1.SetScalePreset(Preset := MBIDivB.E_AiScalePreset.ELM3XXX_EXTENDED, NominalFullScale := 10.0);
+        // or a manual pair:
+        // Ai1.SetScale(RawFullScale := 7812500, ValueFullScale := 10.0);
+
+        // every cycle
+        Ai1();
+        Acq.Channel[1].Input := Ai1.Status.Value;
+
+    Scaling until SetScale/SetScalePreset is called: ELM3XXX_EXTENDED, 10.0.
+
+    Methods (ST only):
+        SetScalePreset(Preset : E_AiScalePreset; NominalFullScale : REAL) : BOOL
+        SetScale(RawFullScale : DINT; ValueFullScale : REAL) : BOOL
+            Status.Value = Raw x ValueFullScale / RawFullScale. A RawFullScale
+            of 0 is rejected with an error, and the previous scaling stays.
+            Returns TRUE if accepted. An accepted call clears that error.
+
+    Cfg (written by the client):
+        FilterSize      DINT        live; number of values averaged into
+                                    ValueFiltered, limited to
+                                    1..GVL_Param.AI_FILTER_MAX_LENGTH (values
+                                    outside are written back clamped); a
+                                    change restarts the average; default 50
+
+    Status (read only):
+        State           INT         always 0
+        StateText       STRING(20)  always 'ACTIVE'
+        Error           BOOL        TRUE while a linked status bit is set, or
+                                    after a rejected SetScale/SetScalePreset
+        ErrorText       STRING(80)  'Terminal reports error' / 'overrange' /
+                                    'underrange', or the rejected call
+        Value           REAL        engineering units (e.g. V), scaled raw value
+        ValueFiltered   REAL        engineering units, mean of the last
+                                    FilterSize values (of all values while
+                                    fewer have been received since a restart)
+        Raw             DINT        last raw value
+        RawFullScale    DINT        raw value of the active scaling ...
+        ValueFullScale  REAL        ... and its engineering value
+
+    Memory: GVL_Param.AI_FILTER_MAX_LENGTH x 4 B (4 KiB with the default).
+*)
+FUNCTION_BLOCK FB_AnalogInput32 EXTENDS FB_AnalogInputBase
+VAR_INPUT
+    Raw AT %I* : DINT;
+    TerminalError AT %I* : BOOL;
+    Overrange AT %I* : BOOL;
+    Underrange AT %I* : BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF NOT ScaleSet THEN
+    // Default for ELM3xxx terminals in their default extended range.
+    ScaleRaw := 7812500;
+    ScaleValue := 10.0;
+    ScaleSet := TRUE;
+END_IF
+
+Update(Raw := Raw, TerminalError := TerminalError, Overrange := Overrange, Underrange := Underrange);
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

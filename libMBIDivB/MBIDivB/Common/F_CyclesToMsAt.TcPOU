@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="F_CyclesToMsAt" Id="{43940838-2e0f-4fc7-b42a-c67b386ec48b}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Converts a number of task cycles to ms for a given cycle time. Inverse of
+    F_MsToCyclesAt; used to report effective times in Status.
+*)
+FUNCTION F_CyclesToMsAt : REAL
+VAR_INPUT
+    Cycles : UDINT;     // number of task cycles
+    CycleTime : UDINT;  // task cycle time in 100 ns units (10000 = 1 ms)
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+F_CyclesToMsAt := LREAL_TO_REAL(UDINT_TO_LREAL(Cycles) * UDINT_TO_LREAL(CycleTime) / 10000.0);
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

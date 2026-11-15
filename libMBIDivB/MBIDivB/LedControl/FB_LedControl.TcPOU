@@ -1,0 +1,312 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_LedControl" Id="{df7783b2-376c-40e1-9a9d-c2f6f321c3a4}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_LedControl - LED through an EL2595 constant-current terminal
+
+    Switches an LED on and off with an optional maximum on time measured by
+    the PLC, sets the LED current live, and reports the terminal's current
+    and voltage readback and its diagnostics. After a PLC start the LED is
+    off.
+
+    Terminal setup (see README.md, "EL2595 setup"): process data set
+    "Standard digital output with InfoData" plus PDO 0x1601 (output current).
+    Info data 1 = output voltage, info data 2 = output current (terminal
+    defaults). Nominal current, supply voltage and forward voltage (CoE
+    0x8000:02/03/04) belong in the terminal's startup list.
+
+    I/O (link in the I/O configuration):
+        ControlWord      AT %Q*  UINT  PDO 0x1600 "DOX Control"
+                                       (bit 1 Output, bit 7 Reset)
+        CurrentSetpoint  AT %Q*  UINT  0x7000:11 "Output current", mA
+        StatusWord       AT %I*  UINT  PDO 0x1A00 "DOX Status" (bit 0 Ready to
+                                       activate, bit 1 Output active,
+                                       bit 6 Warning, bit 7 Error)
+        InfoData1        AT %I*  UINT  0x6000:11, output voltage, 0.01 V
+        InfoData2        AT %I*  UINT  0x6000:12, output current, mA
+
+    Use from ST, every cycle:
+        Led1();
+
+    Methods (ST):
+        On() : BOOL      same as Cmd.On; TRUE if accepted
+        Off() : BOOL     same as Cmd.Off; always accepted
+        Reset() : BOOL   same as Cmd.Reset; always accepted
+    Call them before the block call.
+
+    Cmd (written by the client, cleared by the block when processed):
+        On      BOOL    switch on in this cycle and start the on time.
+                        Accepted without restarting the on time while on.
+                        Rejected if the terminal is not ready to activate,
+                        reports an error, or Cfg.MaxOnTimeMs < 0.
+        Off     BOOL    switch off in this cycle
+        Reset   BOOL    set the terminal's reset bit for one cycle, to clear
+                        a terminal error when its automatic reset is disabled
+
+    Cfg (written by the client):
+        MaxOnTimeMs  REAL  applied at Cmd.On; ms, >= 0, rounded to whole
+                           cycles (at least 1); 0 = unlimited
+        CurrentMa    INT   live, also while on; mA, 300..700. An invalid value
+                           is reported as an error while present, and the last
+                           valid value stays. The terminal limits the current
+                           to its nominal current (CoE 0x8000:02).
+
+    Status (read only):
+        State              INT         0 OFF, 1 ON, 2 TIMEOUT, 3 FAULT
+                                       (see E_LedState). A terminal error
+                                       switches to FAULT when it occurs.
+                                       TIMEOUT and FAULT stay until the next
+                                       accepted On or Off.
+        StateText          STRING(20)  name of State
+        Error              BOOL        TRUE in FAULT, while the terminal
+                                       reports an error, while CurrentMa is
+                                       invalid, or after a rejected command
+        ErrorText          STRING(80)  e.g. 'Terminal error: see diag data (CoE 0xA000)'
+        Warning            BOOL        terminal warning; the LED stays on
+        Ready              BOOL        terminal is ready to activate
+        OutputActive       BOOL        terminal output is active
+        OnTimeMs           REAL        ms; since switch-on while on, else the
+                                       length of the last on period
+        MaxOnTimeMs        REAL        ms; effective maximum on time, 0 = unlimited
+        CurrentSetpointMa  INT         mA; setpoint sent to the terminal
+        CurrentMa          REAL        mA; output current readback
+        VoltageV           REAL        V; output voltage readback
+*)
+FUNCTION_BLOCK FB_LedControl
+VAR_INPUT
+    Cmd : ST_LedCmd;
+    Cfg : ST_LedCfg;
+    StatusWord AT %I* : UINT;
+    InfoData1 AT %I* : UINT;
+    InfoData2 AT %I* : UINT;
+END_VAR
+VAR_OUTPUT
+    Status : ST_LedStatus;
+    ControlWord AT %Q* : UINT;
+    CurrentSetpoint AT %Q* : UINT;
+END_VAR
+VAR
+    State : E_LedState := E_LedState.OFF;
+    // Last valid current setpoint, mA.
+    CurrentMa : INT := 300;
+    // Maximum on time of the present switch-on in cycles, 0 = unlimited.
+    MaxOnCycles : UDINT;
+    // Cycles on since the last switch-on.
+    OnCycles : UDINT;
+    // Set the terminal's reset bit in the next written control word.
+    ResetPending : BOOL;
+    // A new terminal error switches the LED off (FAULT).
+    TerminalErrorEdge : R_TRIG;
+
+    // Error of the last rejected command, kept until a command is accepted.
+    CmdError : BOOL;
+    CmdErrorText : STRING(80);
+    // Error of an invalid live parameter, empty while valid.
+    ConditionText : STRING(80);
+END_VAR
+VAR CONSTANT
+    CONTROL_OUTPUT : UINT := 16#0002;           // 0x7000:02 Output
+    CONTROL_RESET : UINT := 16#0080;            // 0x7000:08 Reset
+    STATUS_READY : UINT := 16#0001;             // 0x6000:01 Ready to activate
+    STATUS_OUTPUT_ACTIVE : UINT := 16#0002;     // 0x6000:02 Output active
+    STATUS_WARNING : UINT := 16#0040;           // 0x6000:07 Warning
+    STATUS_ERROR : UINT := 16#0080;             // 0x6000:08 Error
+    CURRENT_MIN_MA : INT := 300;
+    CURRENT_MAX_MA : INT := 700;
+    FAULT_TEXT : STRING(80) := 'Terminal error: see diag data (CoE 0xA000)';
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Live current setpoint
+IF Cfg.CurrentMa >= CURRENT_MIN_MA AND Cfg.CurrentMa <= CURRENT_MAX_MA THEN
+    CurrentMa := Cfg.CurrentMa;
+    ConditionText := '';
+ELSE
+    ConditionText := CONCAT(CONCAT('CurrentMa ', INT_TO_STRING(Cfg.CurrentMa)), ' outside 300..700');
+END_IF
+
+// 2. Commands
+IF Cmd.Reset THEN
+    Cmd.Reset := FALSE;
+    Reset();
+END_IF
+IF Cmd.Off THEN
+    Cmd.Off := FALSE;
+    Off();
+END_IF
+IF Cmd.On THEN
+    Cmd.On := FALSE;
+    On();
+END_IF
+
+// 3. State machine
+TerminalErrorEdge(CLK := TerminalError());
+IF TerminalErrorEdge.Q OR (State = E_LedState.ON AND TerminalError()) THEN
+    State := E_LedState.FAULT;
+ELSIF State = E_LedState.ON THEN
+    IF MaxOnCycles > 0 AND OnCycles >= MaxOnCycles THEN
+        State := E_LedState.TIMEOUT;
+    ELSE
+        OnCycles := OnCycles + 1;
+    END_IF
+END_IF
+
+// 4. Outputs
+ControlWord := 0;
+IF State = E_LedState.ON THEN
+    ControlWord := ControlWord OR CONTROL_OUTPUT;
+END_IF
+IF ResetPending THEN
+    ControlWord := ControlWord OR CONTROL_RESET;
+    ResetPending := FALSE;
+END_IF
+CurrentSetpoint := INT_TO_UINT(CurrentMa);
+
+// 5. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="Off" Id="{d1ab5fc3-6452-4307-9f06-99f408590e61}">
+      <Declaration><![CDATA[
+(*
+    Switches the LED off; same as Cmd.Off. Always accepted.
+*)
+METHOD Off : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+State := E_LedState.OFF;
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Off := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="On" Id="{44812f1b-8046-48e7-9ef4-1fda654a7254}">
+      <Declaration><![CDATA[
+(*
+    Switches the LED on; same as Cmd.On. Returns TRUE if accepted.
+*)
+METHOD On : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+On := FALSE;
+
+IF State = E_LedState.ON THEN
+    // Already on: accepted, the on time continues.
+    CmdError := FALSE;
+    CmdErrorText := '';
+    UpdateStatus();
+    On := TRUE;
+    RETURN;
+END_IF
+IF TerminalError() THEN
+    Reject('On rejected: terminal reports error (CoE 0xA000)');
+    RETURN;
+END_IF
+IF (StatusWord AND STATUS_READY) = 0 THEN
+    Reject('On rejected: terminal not ready to activate');
+    RETURN;
+END_IF
+IF Cfg.MaxOnTimeMs < 0.0 THEN
+    Reject('On rejected: MaxOnTimeMs must be >= 0');
+    RETURN;
+END_IF
+
+IF Cfg.MaxOnTimeMs > 0.0 THEN
+    MaxOnCycles := MAX(UDINT#1, F_MsToCycles(TimeMs := Cfg.MaxOnTimeMs));
+ELSE
+    MaxOnCycles := 0;
+END_IF
+Status.MaxOnTimeMs := F_CyclesToMs(Cycles := MaxOnCycles);
+OnCycles := 0;
+State := E_LedState.ON;
+
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+On := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reject" Id="{f330f270-fd28-49cf-8e7b-7582a8294cb5}">
+      <Declaration><![CDATA[
+(*
+    Reports a rejected command. The state does not change.
+*)
+METHOD PRIVATE Reject
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CmdError := TRUE;
+CmdErrorText := Text;
+UpdateStatus();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{4c3801be-240b-4116-9a56-f13882d78802}">
+      <Declaration><![CDATA[
+(*
+    Sets the terminal's reset bit in the next control word, for one cycle;
+    same as Cmd.Reset. Always accepted.
+*)
+METHOD Reset : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+ResetPending := TRUE;
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Reset := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TerminalError" Id="{4f793675-8ca9-41ff-8108-eaa5a70ac93c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TerminalError : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TerminalError := (StatusWord AND STATUS_ERROR) <> 0;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{7eb68882-41c0-44d2-bdd9-77df64e6ca8e}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+IF State = E_LedState.FAULT OR TerminalError() THEN
+    Status.Error := TRUE;
+    Status.ErrorText := FAULT_TEXT;
+ELSIF ConditionText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := ConditionText;
+ELSE
+    Status.Error := CmdError;
+    Status.ErrorText := CmdErrorText;
+END_IF
+
+Status.Warning := (StatusWord AND STATUS_WARNING) <> 0;
+Status.Ready := (StatusWord AND STATUS_READY) <> 0;
+Status.OutputActive := (StatusWord AND STATUS_OUTPUT_ACTIVE) <> 0;
+Status.OnTimeMs := F_CyclesToMs(Cycles := OnCycles);
+Status.CurrentSetpointMa := CurrentMa;
+Status.CurrentMa := UINT_TO_REAL(InfoData2);
+Status.VoltageV := UINT_TO_REAL(InfoData1) / 100.0;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

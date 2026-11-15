@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_LedStatus" Id="{6e7c735c-0ca8-45ec-8c7f-c896d3801cf4}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_LedControl. State codes: see E_LedState.
+*)
+TYPE ST_LedStatus EXTENDS ST_StatusBase :
+STRUCT
+    Warning : BOOL;             // terminal reports a warning (see CoE 0xA000)
+    Ready : BOOL;               // terminal reports "Ready to activate"
+    OutputActive : BOOL;        // terminal reports "Output active"
+    OnTimeMs : REAL;            // ms; since switch-on while on, else length of the last on period
+    MaxOnTimeMs : REAL;         // ms; effective maximum on time of the last switch-on, 0 = unlimited
+    CurrentSetpointMa : INT;    // mA; current setpoint sent to the terminal
+    CurrentMa : REAL;           // mA; output current reported by the terminal
+    VoltageV : REAL;            // V; output voltage reported by the terminal
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

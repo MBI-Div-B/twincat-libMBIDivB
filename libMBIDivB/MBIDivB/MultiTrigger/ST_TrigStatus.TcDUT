@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_TrigStatus" Id="{89b5aae3-ef06-415c-a8e4-278427234cc1}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_MultiTrigger. State codes: see E_TrigState.
+*)
+TYPE ST_TrigStatus EXTENDS ST_StatusBase :
+STRUCT
+    EdgesDone : UDINT;  // rising edges since the last start
+    Output : BOOL;      // present output state
+    Count : DINT;       // Count of the last accepted start
+    DelayMs : REAL;     // ms, effective delay time (whole cycles)
+    HighMs : REAL;      // ms, effective high time
+    LowMs : REAL;       // ms, effective low time
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

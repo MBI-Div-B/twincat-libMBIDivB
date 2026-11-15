@@ -1,0 +1,287 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_MultiTrigger" Id="{1c8e1530-664a-4e65-9bb8-9ac74b026212}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_MultiTrigger - digital pulse train generator
+
+    Generates pulse trains on a digital output, e.g. to trigger cameras or
+    shutters. After an accepted start the output stays low for DelayMs, then
+    alternates between high for HighMs and low for LowMs. With Count > 0 it
+    produces exactly Count rising edges; after the high phase of the last
+    pulse the output goes low and the trigger becomes idle. With Count < 0 it
+    pulses until stopped. With DelayMs 0 the first rising edge is in the
+    cycle the start is processed. Resolution is one PLC cycle.
+
+    Example on a 1 ms task: DelayMs 5, HighMs 2, LowMs 3, Count 2, started in
+    cycle 0: output high in cycles 5-6 and 10-11, low otherwise.
+
+    Triggers started in the same PLC cycle run in lockstep.
+
+    I/O (link in the I/O configuration):
+        Output  AT %Q*  BOOL  digital output channel
+
+    Use from ST:
+        // group start of all enabled triggers, e.g. on a flag set by the client
+        IF StartAllTriggers THEN
+            StartAllTriggers := FALSE;
+            Trig1.StartIfEnabled();
+            Trig2.StartIfEnabled();
+        END_IF
+        // every cycle
+        Trig1();
+        Trig2();
+        Acq(Gate := Trig1.Status.Output);   // gate a counter/timer in the same cycle
+    Call Start()/StartIfEnabled()/Stop() before the block call.
+
+    Methods (ST):
+        Start() : BOOL           same as Cmd.Start; TRUE if accepted
+        StartIfEnabled() : BOOL  group start: starts like Start() if
+                                 Cfg.Enabled is TRUE; otherwise does nothing
+                                 and reports no error. TRUE if started.
+        Stop() : BOOL            same as Cmd.Stop; always accepted
+
+    Cmd (written by the client, cleared by the block when processed):
+        Start   BOOL    start the pulse train, regardless of Cfg.Enabled.
+                        Rejected while running or if Cfg is invalid.
+        Stop    BOOL    output low in this cycle, state IDLE
+
+    Cfg (written by the client, applied at the next accepted start):
+        DelayMs   REAL  ms, >= 0, rounded to whole cycles
+        HighMs    REAL  ms, > 0, rounded to whole cycles, at least 1
+        LowMs     REAL  ms, > 0, rounded to whole cycles, at least 1
+        Count     DINT  number of rising edges; < 0 = continuous; 0 invalid
+        Enabled   BOOL  take part in group starts (StartIfEnabled); default FALSE
+
+    Status (read only):
+        State      INT         0 IDLE, 1 DELAY, 2 HIGH, 3 LOW (see E_TrigState)
+        StateText  STRING(20)  name of State
+        Error      BOOL        TRUE after a rejected start, until the next
+                               accepted command
+        ErrorText  STRING(80)  e.g. 'Start rejected: Count must not be 0'
+        EdgesDone  UDINT       rising edges since the last start
+        Output     BOOL        present output state
+        Count      DINT        Count of the last accepted start
+        DelayMs    REAL        ms, effective delay time
+        HighMs     REAL        ms, effective high time
+        LowMs      REAL        ms, effective low time
+*)
+FUNCTION_BLOCK FB_MultiTrigger
+VAR_INPUT
+    Cmd : ST_TrigCmd;
+    Cfg : ST_TrigCfg;
+END_VAR
+VAR_OUTPUT
+    Status : ST_TrigStatus;
+    Output AT %Q* : BOOL;
+END_VAR
+VAR
+    State : E_TrigState := E_TrigState.IDLE;
+
+    // Working values, copied from Cfg at the accepted start.
+    DelayCycles : UDINT;
+    HighCycles : UDINT;
+    LowCycles : UDINT;
+    Count : DINT;
+
+    // Cycles spent in the present state.
+    Counter : UDINT;
+    EdgesDone : UDINT;
+
+    // Error of the last rejected command, kept until a command is accepted.
+    CmdError : BOOL;
+    CmdErrorText : STRING(80);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Commands
+IF Cmd.Stop THEN
+    Cmd.Stop := FALSE;
+    Stop();
+END_IF
+IF Cmd.Start THEN
+    Cmd.Start := FALSE;
+    Start();
+END_IF
+
+// 2. State machine: transitions at the end of a phase, then the output of
+//    the state this cycle belongs to.
+CASE State OF
+    E_TrigState.DELAY:
+        IF Counter >= DelayCycles THEN
+            EnterHigh();
+        END_IF
+
+    E_TrigState.HIGH:
+        IF Counter >= HighCycles THEN
+            IF Count > 0 AND EdgesDone >= DINT_TO_UDINT(Count) THEN
+                State := E_TrigState.IDLE;
+            ELSE
+                State := E_TrigState.LOW;
+            END_IF
+            Counter := 0;
+        END_IF
+
+    E_TrigState.LOW:
+        IF Counter >= LowCycles THEN
+            EnterHigh();
+        END_IF
+END_CASE
+
+Output := State = E_TrigState.HIGH;
+IF State <> E_TrigState.IDLE THEN
+    Counter := Counter + 1;
+END_IF
+
+// 3. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="EnterHigh" Id="{b1839287-7c22-45c1-8b2f-2aa71e9d9072}">
+      <Declaration><![CDATA[
+(*
+    Starts a high phase; this is a rising edge.
+*)
+METHOD PRIVATE EnterHigh
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+State := E_TrigState.HIGH;
+Counter := 0;
+EdgesDone := EdgesDone + 1;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reject" Id="{0b0e618e-dc81-48b0-9e22-a6361fab67cd}">
+      <Declaration><![CDATA[
+(*
+    Reports a rejected command. The state does not change.
+*)
+METHOD PRIVATE Reject
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CmdError := TRUE;
+CmdErrorText := Text;
+UpdateStatus();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Start" Id="{3d6bb5a5-dfd2-4995-a0f9-332d7eded7f4}">
+      <Declaration><![CDATA[
+(*
+    Starts the pulse train with the present Cfg; same as Cmd.Start. Does not
+    depend on Cfg.Enabled. Returns TRUE if accepted.
+*)
+METHOD Start : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Start := FALSE;
+
+IF State <> E_TrigState.IDLE THEN
+    Reject('Start rejected: trigger running');
+    RETURN;
+END_IF
+IF Cfg.DelayMs < 0.0 THEN
+    Reject('Start rejected: DelayMs must be >= 0');
+    RETURN;
+END_IF
+IF Cfg.HighMs <= 0.0 THEN
+    Reject('Start rejected: HighMs must be > 0');
+    RETURN;
+END_IF
+IF Cfg.LowMs <= 0.0 THEN
+    Reject('Start rejected: LowMs must be > 0');
+    RETURN;
+END_IF
+IF Cfg.Count = 0 THEN
+    Reject('Start rejected: Count must not be 0');
+    RETURN;
+END_IF
+
+DelayCycles := F_MsToCycles(TimeMs := Cfg.DelayMs);
+HighCycles := MAX(UDINT#1, F_MsToCycles(TimeMs := Cfg.HighMs));
+LowCycles := MAX(UDINT#1, F_MsToCycles(TimeMs := Cfg.LowMs));
+Count := Cfg.Count;
+Status.DelayMs := F_CyclesToMs(Cycles := DelayCycles);
+Status.HighMs := F_CyclesToMs(Cycles := HighCycles);
+Status.LowMs := F_CyclesToMs(Cycles := LowCycles);
+
+EdgesDone := 0;
+IF DelayCycles = 0 THEN
+    EnterHigh();
+ELSE
+    State := E_TrigState.DELAY;
+    Counter := 0;
+END_IF
+
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Start := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartIfEnabled" Id="{abc59b16-ea8e-42f1-b902-2ccd893aaac9}">
+      <Declaration><![CDATA[
+(*
+    Group start: starts like Start() if Cfg.Enabled is TRUE, otherwise does
+    nothing and reports no error. Returns TRUE if the trigger was started.
+    Call it for every trigger of a group in the same cycle to run them in
+    lockstep.
+*)
+METHOD StartIfEnabled : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF Cfg.Enabled THEN
+    StartIfEnabled := Start();
+ELSE
+    StartIfEnabled := FALSE;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop" Id="{f4548f8e-9dac-4f1f-b91f-504376014b97}">
+      <Declaration><![CDATA[
+(*
+    Sets the output low and makes the trigger idle; same as Cmd.Stop.
+    Always accepted.
+*)
+METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+State := E_TrigState.IDLE;
+Counter := 0;
+Output := FALSE;
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{6a57071b-37f4-4ebb-953a-9b1edc92d657}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+Status.Error := CmdError;
+Status.ErrorText := CmdErrorText;
+Status.EdgesDone := EdgesDone;
+Status.Output := Output;
+Status.Count := Count;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

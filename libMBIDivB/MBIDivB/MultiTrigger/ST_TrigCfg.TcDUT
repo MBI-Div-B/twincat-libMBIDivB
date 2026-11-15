@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_TrigCfg" Id="{f95b067b-719a-4d66-8bd4-42a1fb1da3ee}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_MultiTrigger, applied when a start is accepted.
+*)
+TYPE ST_TrigCfg :
+STRUCT
+    DelayMs : REAL := 0.0;  // ms, >= 0; low time before the first pulse
+    HighMs : REAL := 1.0;   // ms, > 0; high time of each pulse (at least 1 cycle)
+    LowMs : REAL := 1.0;    // ms, > 0; low time between pulses (at least 1 cycle)
+    Count : DINT := 1;      // number of pulses (rising edges); < 0 = continuous; 0 is invalid
+    Enabled : BOOL;         // take part in group starts (StartIfEnabled)
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

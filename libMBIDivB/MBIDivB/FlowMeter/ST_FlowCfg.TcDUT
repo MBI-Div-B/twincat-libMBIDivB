@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_FlowCfg" Id="{5dbafefe-2611-4ff2-8974-98260cf661bc}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_FlowMeter.
+*)
+TYPE ST_FlowCfg :
+STRUCT
+    // Live. Status.FlowRate = Factor x Status.FrequencyHz, in the flow unit
+    // per Hz of the sensor's datasheet. Default for the Koolance INS-FM19.
+    Factor : REAL := 0.28;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

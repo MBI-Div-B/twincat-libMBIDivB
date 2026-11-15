@@ -1,0 +1,25 @@
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# TwinCAT sources. The pre-commit hooks write them as UTF-8 without a byte
+# order mark. Line endings are normalized by .gitattributes (LF in the
+# repository, native on checkout).
+[*.{TcPOU,TcDUT,TcGVL,TcTTO,plcproj,tsproj}]
+charset = utf-8
+indent_style = space
+indent_size = 4
+tab_width = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

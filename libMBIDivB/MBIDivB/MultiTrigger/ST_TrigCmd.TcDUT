@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_TrigCmd" Id="{4fa576e0-8e93-42f9-8d6a-913b6d8574d7}">
+    <Declaration><![CDATA[
+(*
+    Commands of FB_MultiTrigger. Write TRUE; the block sets the flag back to
+    FALSE when it has processed the command.
+*)
+TYPE ST_TrigCmd :
+STRUCT
+    Start : BOOL;  // start the pulse train (independent of Cfg.Enabled)
+    Stop : BOOL;   // output low and idle
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

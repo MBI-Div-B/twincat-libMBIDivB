@@ -1,0 +1,221 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_AnalogInputTest" Id="{5e6b4b2d-4371-4b29-b5d9-ec526945e7b8}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_AnalogInput16/32 (specs/analog-input).
+*)
+FUNCTION_BLOCK FB_AnalogInputTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    AiNegative : MBIDivB.FB_AnalogInput16;
+    AiElmNominal : MBIDivB.FB_AnalogInput32;
+    AiElmPreset : MBIDivB.FB_AnalogInput32;
+    AiZeroScale : MBIDivB.FB_AnalogInput16;
+    AiConstant : MBIDivB.FB_AnalogInput16;
+    AiReduced : MBIDivB.FB_AnalogInput16;
+    AiSizeZero : MBIDivB.FB_AnalogInput16;
+    AiOverrange : MBIDivB.FB_AnalogInput16;
+    AiUnlinked : MBIDivB.FB_AnalogInput32;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+NegativeValue16Bit();
+ElmNominalFullScale();
+ElmExtendedPreset();
+ZeroRawFullScaleRejected();
+ConstantInputFiltered();
+FilterSizeReducedRestarts();
+FilterSizeZeroClampedToOne();
+OverrangeSetAndCleared();
+UnlinkedStatusBitsNoError();
+]]></ST>
+    </Implementation>
+    <Method Name="ConstantInputFiltered" Id="{faae7e18-d223-4327-8ed7-bf86f08b6b7b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ConstantInputFiltered
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ConstantInputFiltered');
+
+AiConstant.SetScale(RawFullScale := 1, ValueFullScale := 1.0);
+AiConstant.Cfg.FilterSize := 10;
+AiConstant.Raw := 2;
+FOR Cycle := 1 TO 25 DO
+    AiConstant();
+END_FOR
+AssertEquals_REAL(Expected := 2.0, Actual := AiConstant.Status.ValueFiltered, Delta := 1.0E-6, Message := 'ValueFiltered');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ElmExtendedPreset" Id="{a093f940-8ef6-4efb-bd02-eb0bfaa95578}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ElmExtendedPreset
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ElmExtendedPreset');
+
+AiElmPreset.SetScalePreset(Preset := MBIDivB.E_AiScalePreset.ELM3XXX_EXTENDED, NominalFullScale := 10.0);
+AiElmPreset.Raw := 7812500;
+AiElmPreset();
+AssertEquals_REAL(Expected := 10.0, Actual := AiElmPreset.Status.Value, Delta := 1.0E-5, Message := 'nominal');
+AiElmPreset.Raw := 8388607;
+AiElmPreset();
+AssertEquals_REAL(Expected := 10.737, Actual := AiElmPreset.Status.Value, Delta := 0.001, Message := 'technical full scale');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ElmNominalFullScale" Id="{5aa880d2-43fe-4984-9814-6bfecdfc0b07}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ElmNominalFullScale
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ElmNominalFullScale');
+
+AiElmNominal.SetScale(RawFullScale := 7812500, ValueFullScale := 10.0);
+AiElmNominal.Raw := 7812500;
+AiElmNominal();
+AssertEquals_REAL(Expected := 10.0, Actual := AiElmNominal.Status.Value, Delta := 1.0E-5, Message := 'Value');
+AssertEquals_DINT(Expected := 7812500, Actual := AiElmNominal.Status.RawFullScale, Message := 'RawFullScale');
+AssertEquals_REAL(Expected := 10.0, Actual := AiElmNominal.Status.ValueFullScale, Delta := 1.0E-6, Message := 'ValueFullScale');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FilterSizeReducedRestarts" Id="{9e393518-3ba6-4299-b581-cff858c7566c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE FilterSizeReducedRestarts
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('FilterSizeReducedRestarts');
+
+AiReduced.SetScale(RawFullScale := 1, ValueFullScale := 1.0);
+AiReduced.Cfg.FilterSize := 1000;
+AiReduced.Raw := 3;
+FOR Cycle := 1 TO 100 DO
+    AiReduced();
+END_FOR
+AiReduced.Cfg.FilterSize := 10;
+AiReduced.Raw := 1;
+AiReduced();
+AssertEquals_REAL(Expected := 1.0, Actual := AiReduced.Status.ValueFiltered, Delta := 1.0E-6, Message := 'no contribution from older samples');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FilterSizeZeroClampedToOne" Id="{3f728ffe-d033-49c7-9656-490115839e3a}">
+      <Declaration><![CDATA[
+METHOD PRIVATE FilterSizeZeroClampedToOne
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('FilterSizeZeroClampedToOne');
+
+AiSizeZero.SetScale(RawFullScale := 1, ValueFullScale := 1.0);
+AiSizeZero.Cfg.FilterSize := 0;
+AiSizeZero.Raw := 4;
+AiSizeZero();
+AssertEquals_DINT(Expected := 1, Actual := AiSizeZero.Cfg.FilterSize, Message := 'FilterSize written back');
+AssertEquals_REAL(Expected := 4.0, Actual := AiSizeZero.Status.ValueFiltered, Delta := 1.0E-6, Message := 'ValueFiltered');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NegativeValue16Bit" Id="{1477b943-c372-476e-b432-8f8c9dd0c34b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NegativeValue16Bit
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NegativeValue16Bit');
+
+AiNegative.SetScalePreset(Preset := MBIDivB.E_AiScalePreset.EL31XX_LEGACY, NominalFullScale := 10.0);
+AiNegative.Raw := -16384;
+AiNegative();
+AssertEquals_REAL(Expected := -5.0, Actual := AiNegative.Status.Value, Delta := 0.001, Message := 'Value');
+AssertEquals_DINT(Expected := -16384, Actual := AiNegative.Status.Raw, Message := 'Raw');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="OverrangeSetAndCleared" Id="{d71aeace-9d3e-424c-aea7-ea346418a1c4}">
+      <Declaration><![CDATA[
+METHOD PRIVATE OverrangeSetAndCleared
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('OverrangeSetAndCleared');
+
+AiOverrange.Overrange := TRUE;
+AiOverrange();
+AssertTrue(Condition := AiOverrange.Status.Error, Message := 'Error while set');
+AssertTrue(Condition := FIND(AiOverrange.Status.ErrorText, 'overrange') > 0, Message := 'ErrorText mentions overrange');
+AiOverrange.Overrange := FALSE;
+AiOverrange();
+AssertFalse(Condition := AiOverrange.Status.Error, Message := 'Error cleared');
+AssertEquals_STRING(Expected := '', Actual := AiOverrange.Status.ErrorText, Message := 'ErrorText cleared');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UnlinkedStatusBitsNoError" Id="{b38776f0-790e-4f83-9a9f-b384b076d963}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UnlinkedStatusBitsNoError
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('UnlinkedStatusBitsNoError');
+
+AiUnlinked.Raw := 1000;
+AiUnlinked();
+AssertFalse(Condition := AiUnlinked.Status.Error, Message := 'Error');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ZeroRawFullScaleRejected" Id="{42d319a6-c1e0-427f-88c8-41bd2d9ed738}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ZeroRawFullScaleRejected
+VAR
+    Accepted : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ZeroRawFullScaleRejected');
+
+AiZeroScale.SetScale(RawFullScale := 32767, ValueFullScale := 10.0);
+Accepted := AiZeroScale.SetScale(RawFullScale := 0, ValueFullScale := 5.0);
+AiZeroScale.Raw := 16384;
+AiZeroScale();
+AssertFalse(Condition := Accepted, Message := 'SetScale must return FALSE');
+AssertTrue(Condition := AiZeroScale.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(AiZeroScale.Status.ErrorText, 'RawFullScale') > 0, Message := 'ErrorText names RawFullScale');
+AssertEquals_REAL(Expected := 5.0, Actual := AiZeroScale.Status.Value, Delta := 0.001, Message := 'previous scaling kept');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

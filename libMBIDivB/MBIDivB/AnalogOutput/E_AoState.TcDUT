@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="E_AoState" Id="{c5fddc9d-3351-4da2-838f-9b5464a57dc7}">
+    <Declaration><![CDATA[
+(*
+    States of FB_AnalogOutput, reported as Status.State (code) and
+    Status.StateText (name).
+*)
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE E_AoState :
+(
+    RAMP := 0,              // ramp mode: output moves towards the setpoint
+    WAVEFORM_IDLE := 1,     // waveform mode: output holds its value
+    WAVEFORM_PLAYING := 2   // waveform mode: playback running
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

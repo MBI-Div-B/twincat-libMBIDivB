@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_LedCmd" Id="{01c856ea-3bfe-4e85-962c-06567dc17182}">
+    <Declaration><![CDATA[
+(*
+    Commands of FB_LedControl. Write TRUE; the block sets the flag back to
+    FALSE when it has processed the command.
+*)
+TYPE ST_LedCmd :
+STRUCT
+    On : BOOL;     // switch the LED on
+    Off : BOOL;    // switch the LED off
+    Reset : BOOL;  // send a reset (rising edge of the reset bit) to the terminal
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

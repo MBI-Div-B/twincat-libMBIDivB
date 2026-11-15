@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_CtCfg" Id="{b303ada6-6a49-4003-9df2-87e8178a687e}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_CounterTimer, applied when a start is accepted.
+*)
+TYPE ST_CtCfg :
+STRUCT
+    IntegrationTimeMs : REAL := 100.0;  // ms, > 0; length of each integration window
+    LatencyTimeMs : REAL := 0.0;        // ms, >= 0; pause between windows, timed mode only
+    Points : DINT := 1;                 // number of points, 1..GVL_Param.CT_BUFFER_LENGTH
+    StartMode : INT := 0;               // 0 = timed, 1 = trigger (one point per rising edge of Gate)
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,380 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_CounterTimerTest" Id="{0d0b7ba2-a7e4-4eb8-8bc8-9d98b01bb093}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_CounterTimer (specs/counter-timer) and of the command
+    handshake and error rules (specs/ads-interface) on this block.
+    Needs CT_CHANNELS >= 4.
+*)
+FUNCTION_BLOCK FB_CounterTimerTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    CtSync : MBIDivB.FB_CounterTimer;
+    CtTooMany : MBIDivB.FB_CounterTimer;
+    CtLinear : MBIDivB.FB_CounterTimer;
+    CtLatency : MBIDivB.FB_CounterTimer;
+    CtTrigger : MBIDivB.FB_CounterTimer;
+    CtMissed : MBIDivB.FB_CounterTimer;
+    CtProgress : MBIDivB.FB_CounterTimer;
+    CtStop : MBIDivB.FB_CounterTimer;
+    CtRunning : MBIDivB.FB_CounterTimer;
+    CtHandshake : MBIDivB.FB_CounterTimer;
+    CtErrorClear : MBIDivB.FB_CounterTimer;
+    CtCfgChange : MBIDivB.FB_CounterTimer;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+SynchronousPoints();
+TooManyPointsRejected();
+LinearInputMean();
+WindowsWithLatency();
+ThreeTriggerPoints();
+EverySecondEdgeMissed();
+ProgressDuringAcquisition();
+StopKeepsPoints();
+StartWhileRunningRejected();
+StartHandshake();
+ErrorClearedByAcceptedStart();
+ConfigChangeDuringRun();
+]]></ST>
+    </Implementation>
+    <Method Name="ConfigChangeDuringRun" Id="{409aabc1-0780-4ed7-a6f1-64d0fbbb5e63}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ConfigChangeDuringRun
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ConfigChangeDuringRun');
+
+CtCfgChange.Cfg.IntegrationTimeMs := 2.0;
+CtCfgChange.Cfg.Points := 2;
+CtCfgChange.Cmd.Start := TRUE;
+CtCfgChange();
+CtCfgChange.Cfg.IntegrationTimeMs := 100.0;
+FOR Cycle := 1 TO 4 DO
+    CtCfgChange();
+END_FOR
+AssertEquals_DINT(Expected := 2, Actual := CtCfgChange.Status.PointsDone, Message := 'started integration time kept');
+AssertEquals_REAL(Expected := 2.0, Actual := CtCfgChange.Status.IntegrationTimeMs, Delta := 1.0E-6, Message := 'effective time');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ErrorClearedByAcceptedStart" Id="{b34b8b8a-387c-443f-aa74-a9ec6b2d76f9}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ErrorClearedByAcceptedStart
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ErrorClearedByAcceptedStart');
+
+CtErrorClear.Cfg.IntegrationTimeMs := 0.0;
+CtErrorClear.Cmd.Start := TRUE;
+CtErrorClear();
+AssertFalse(Condition := CtErrorClear.Cmd.Start, Message := 'flag cleared');
+AssertEquals_INT(Expected := 0, Actual := CtErrorClear.Status.State, Message := 'stays idle');
+AssertTrue(Condition := CtErrorClear.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(CtErrorClear.Status.ErrorText, 'IntegrationTimeMs') > 0, Message := 'names IntegrationTimeMs');
+CtErrorClear.Cfg.IntegrationTimeMs := 10.0;
+CtErrorClear.Cmd.Start := TRUE;
+CtErrorClear();
+AssertFalse(Condition := CtErrorClear.Status.Error, Message := 'Error cleared');
+AssertEquals_STRING(Expected := '', Actual := CtErrorClear.Status.ErrorText, Message := 'ErrorText cleared');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EverySecondEdgeMissed" Id="{0176a587-c411-4065-93c0-e48b87dcdaa8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE EverySecondEdgeMissed
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('EverySecondEdgeMissed');
+
+CtMissed.Cfg.StartMode := 1;
+CtMissed.Cfg.IntegrationTimeMs := 8.0;
+CtMissed.Cfg.Points := 100;
+CtMissed.Start();
+FOR Cycle := 0 TO 50 DO
+    CtMissed(Gate := Cycle > 0 AND Cycle MOD 5 = 0);
+END_FOR
+// Edges at 5, 15, 25, 35, 45 start windows; 10, 20, 30, 40, 50 are missed.
+AssertEquals_UDINT(Expected := 5, Actual := CtMissed.Status.MissedTriggers, Message := 'MissedTriggers');
+AssertEquals_DINT(Expected := 4, Actual := CtMissed.Status.PointsDone, Message := 'PointsDone');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LinearInputMean" Id="{ffa74149-55e4-476c-9c75-08b2faa7a719}">
+      <Declaration><![CDATA[
+METHOD PRIVATE LinearInputMean
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('LinearInputMean');
+
+CtLinear.Cfg.IntegrationTimeMs := 4.0;
+CtLinear.Cfg.Points := 1;
+CtLinear.Cmd.Start := TRUE;
+CtLinear();   // start cycle, window 1 starts in the next cycle
+FOR Cycle := 1 TO 4 DO
+    CtLinear.Channel[1].Input := INT_TO_REAL(Cycle);
+    CtLinear();
+END_FOR
+AssertEquals_REAL(Expected := 2.5, Actual := CtLinear.Channel[1].Data[1], Delta := 1.0E-6, Message := 'mean of 1..4');
+AssertEquals_INT(Expected := 0, Actual := CtLinear.Status.State, Message := 'idle after the last point');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ProgressDuringAcquisition" Id="{3d731806-bc4b-4e81-9d01-8121fccba336}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ProgressDuringAcquisition
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ProgressDuringAcquisition');
+
+CtProgress.Cfg.IntegrationTimeMs := 1.0;
+CtProgress.Cfg.Points := 10;
+CtProgress.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 4 DO
+    CtProgress();
+END_FOR
+AssertEquals_DINT(Expected := 4, Actual := CtProgress.Status.PointsDone, Message := 'PointsDone');
+AssertTrue(Condition := CtProgress.Status.State <> 0, Message := 'not idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartHandshake" Id="{943f57fe-14ee-4248-81fb-62359bacc443}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StartHandshake
+VAR
+    ReadBeforeCycle : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StartHandshake');
+
+CtHandshake.Cmd.Start := TRUE;
+ReadBeforeCycle := CtHandshake.Cmd.Start;
+CtHandshake();
+AssertTrue(Condition := ReadBeforeCycle, Message := 'flag reads TRUE before the PLC cycle');
+AssertFalse(Condition := CtHandshake.Cmd.Start, Message := 'flag cleared');
+AssertEquals_INT(Expected := 1, Actual := CtHandshake.Status.State, Message := 'running state when the flag reads FALSE');
+AssertEquals_STRING(Expected := 'INTEGRATING', Actual := CtHandshake.Status.StateText, Message := 'TO_STRING of E_CtState');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartWhileRunningRejected" Id="{b56e26ea-75d8-4ca3-b386-f8ad7cc4ca43}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StartWhileRunningRejected
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StartWhileRunningRejected');
+
+CtRunning.Cfg.IntegrationTimeMs := 5.0;
+CtRunning.Cfg.Points := 2;
+CtRunning.Cmd.Start := TRUE;
+CtRunning();
+CtRunning();
+CtRunning.Cmd.Start := TRUE;
+CtRunning();
+AssertFalse(Condition := CtRunning.Cmd.Start, Message := 'flag cleared');
+AssertTrue(Condition := CtRunning.Status.Error, Message := 'Error');
+AssertEquals_INT(Expected := 1, Actual := CtRunning.Status.State, Message := 'still integrating');
+FOR Cycle := 1 TO 20 DO
+    CtRunning();
+END_FOR
+AssertEquals_DINT(Expected := 2, Actual := CtRunning.Status.PointsDone, Message := 'running acquisition completed');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StopKeepsPoints" Id="{0e3fa739-6285-48f7-8b0b-4a78d6c98102}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StopKeepsPoints
+VAR
+    Cycle : INT;
+    Point : INT;
+    Before : ARRAY[1..5] OF REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StopKeepsPoints');
+
+CtStop.Cfg.IntegrationTimeMs := 2.0;
+CtStop.Cfg.Points := 10;
+CtStop.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 11 DO   // points 1-5 in cycles 1-10, cycle 11 starts point 6
+    CtStop.Channel[1].Input := INT_TO_REAL(Cycle);
+    CtStop();
+END_FOR
+FOR Point := 1 TO 5 DO
+    Before[Point] := CtStop.Channel[1].Data[Point];
+END_FOR
+CtStop.Cmd.Stop := TRUE;
+CtStop();
+AssertEquals_INT(Expected := 0, Actual := CtStop.Status.State, Message := 'idle');
+AssertEquals_DINT(Expected := 5, Actual := CtStop.Status.PointsDone, Message := 'PointsDone');
+FOR Point := 1 TO 5 DO
+    AssertEquals_REAL(Expected := Before[Point], Actual := CtStop.Channel[1].Data[Point], Delta := 0.0, Message := 'point unchanged');
+END_FOR
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SynchronousPoints" Id="{e755d4d4-822d-4608-abcc-54668374710f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SynchronousPoints
+VAR
+    Cycle : INT;
+    Channel : INT;
+    Point : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SynchronousPoints');
+
+CtSync.Cfg.IntegrationTimeMs := 2.0;
+CtSync.Cfg.Points := 10;
+CtSync.Start();
+FOR Cycle := 0 TO 30 DO
+    FOR Channel := 1 TO 4 DO
+        CtSync.Channel[Channel].Input := INT_TO_REAL(Channel * 1000 + Cycle);
+    END_FOR
+    CtSync();
+END_FOR
+AssertEquals_DINT(Expected := 10, Actual := CtSync.Status.PointsDone, Message := 'PointsDone');
+FOR Point := 1 TO 10 DO
+    FOR Channel := 2 TO 4 DO
+        // Same cycles: the channel offset is the only difference.
+        AssertEquals_REAL(Expected := CtSync.Channel[1].Data[Point] + INT_TO_REAL((Channel - 1) * 1000),
+            Actual := CtSync.Channel[Channel].Data[Point], Delta := 0.01, Message := 'point from the same cycles');
+    END_FOR
+END_FOR
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ThreeTriggerPoints" Id="{0b5e5082-aea1-42b6-b30a-fd288b124ef8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ThreeTriggerPoints
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ThreeTriggerPoints');
+
+CtTrigger.Cfg.StartMode := 1;
+CtTrigger.Cfg.IntegrationTimeMs := 3.0;
+CtTrigger.Cfg.Points := 3;
+CtTrigger.Start();
+AssertEquals_INT(Expected := 3, Actual := CtTrigger.Status.State, Message := 'WAIT_TRIGGER after start');
+FOR Cycle := 0 TO 30 DO
+    CtTrigger.Channel[1].Input := INT_TO_REAL(Cycle);
+    CtTrigger(Gate := Cycle = 5 OR Cycle = 15 OR Cycle = 25);
+END_FOR
+AssertEquals_DINT(Expected := 3, Actual := CtTrigger.Status.PointsDone, Message := 'PointsDone');
+AssertEquals_REAL(Expected := 6.0, Actual := CtTrigger.Channel[1].Data[1], Delta := 1.0E-6, Message := 'point 1 from the edge cycle on');
+AssertEquals_REAL(Expected := 16.0, Actual := CtTrigger.Channel[1].Data[2], Delta := 1.0E-6, Message := 'point 2');
+AssertEquals_REAL(Expected := 26.0, Actual := CtTrigger.Channel[1].Data[3], Delta := 1.0E-6, Message := 'point 3');
+AssertEquals_UDINT(Expected := 0, Actual := CtTrigger.Status.MissedTriggers, Message := 'MissedTriggers');
+AssertEquals_INT(Expected := 0, Actual := CtTrigger.Status.State, Message := 'idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TooManyPointsRejected" Id="{9a53dcb0-19a7-44e1-b572-18d55eff0521}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TooManyPointsRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TooManyPointsRejected');
+
+CtTooMany.Cfg.Points := UDINT_TO_DINT(MBIDivB.GVL_Param.CT_BUFFER_LENGTH) + 1;
+CtTooMany.Cmd.Start := TRUE;
+CtTooMany();
+AssertFalse(Condition := CtTooMany.Cmd.Start, Message := 'flag cleared');
+AssertEquals_INT(Expected := 0, Actual := CtTooMany.Status.State, Message := 'stays idle');
+AssertTrue(Condition := CtTooMany.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(CtTooMany.Status.ErrorText, 'Points') > 0, Message := 'names Points');
+AssertTrue(Condition := FIND(CtTooMany.Status.ErrorText, UDINT_TO_STRING(MBIDivB.GVL_Param.CT_BUFFER_LENGTH)) > 0, Message := 'names the buffer length');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WindowsWithLatency" Id="{bcc999ba-026f-4a70-a0ba-1038e7330928}">
+      <Declaration><![CDATA[
+METHOD PRIVATE WindowsWithLatency
+VAR
+    Cycle : INT;
+    IdleAfter18 : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('WindowsWithLatency');
+
+CtLatency.Cfg.IntegrationTimeMs := 5.0;
+CtLatency.Cfg.LatencyTimeMs := 2.0;
+CtLatency.Cfg.Points := 3;
+CtLatency.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 19 DO
+    CtLatency.Channel[1].Input := INT_TO_REAL(Cycle);
+    CtLatency();
+    IF Cycle = 18 THEN
+        IdleAfter18 := CtLatency.Status.State = 0;
+    END_IF
+END_FOR
+AssertEquals_REAL(Expected := 3.0, Actual := CtLatency.Channel[1].Data[1], Delta := 1.0E-6, Message := 'window 1 = cycles 1-5');
+AssertEquals_REAL(Expected := 10.0, Actual := CtLatency.Channel[1].Data[2], Delta := 1.0E-6, Message := 'window 2 = cycles 8-12');
+AssertEquals_REAL(Expected := 17.0, Actual := CtLatency.Channel[1].Data[3], Delta := 1.0E-6, Message := 'window 3 = cycles 15-19');
+AssertFalse(Condition := IdleAfter18, Message := 'running until cycle 19');
+AssertEquals_INT(Expected := 0, Actual := CtLatency.Status.State, Message := 'idle after the third window');
+AssertEquals_REAL(Expected := 5.0, Actual := CtLatency.Status.IntegrationTimeMs, Delta := 1.0E-6, Message := 'effective integration time');
+AssertEquals_REAL(Expected := 2.0, Actual := CtLatency.Status.LatencyTimeMs, Delta := 1.0E-6, Message := 'effective latency time');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1">
+  <GVL Name="GVL_LibInfo" Id="{54382858-9e09-48e4-8da4-e24065b5d827}">
+    <Declaration><![CDATA[
+(*
+    Library version information, readable over ADS, e.g. GVL_LibInfo.Version.
+
+    GENERATED FILE - do not edit GVL_LibInfo.TcGVL. It is created from
+    GVL_LibInfo.TcGVL.template by twincat-tools before each build:
+        tc_git_info libMBIDivB/MBIDivB/GVLs/GVL_LibInfo.TcGVL.template
+    See README.md, "Version information".
+
+    These are variables, not constants, so that they appear in the ADS
+    symbol table.
+*)
+{attribute 'qualified_only'}
+{attribute 'linkalways'}
+VAR_GLOBAL
+    // Library version X.Y.Z, taken from the most recent git tag vX.Y.Z.
+    Version : STRING(20) := '{{GIT_VERSION}}';
+    // Commit the library was built from.
+    GitHash : STRING(40) := '{{GIT_HASH}}';
+    // TRUE if the library was built from uncommitted changes.
+    Dirty : BOOL := {{GIT_DIRTY}} <> 0;
+END_VAR
+]]></Declaration>
+  </GVL>
+</TcPlcObject>

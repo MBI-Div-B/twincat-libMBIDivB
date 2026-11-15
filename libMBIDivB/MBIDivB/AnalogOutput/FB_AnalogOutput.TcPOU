@@ -1,0 +1,520 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_AnalogOutput" Id="{005f4470-ef0f-4285-b985-3f15db73e28a}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_AnalogOutput - analog voltage output with limits, ramp and waveform
+
+    Drives one analog output channel, e.g. as the control voltage of a power
+    supply or motor controller, in one of two modes:
+
+    Ramp mode (Cfg.Mode 0): the output moves from its present value towards
+    Cfg.Setpoint by at most Cfg.VelocityVPerS x cycle time per cycle and
+    reaches the setpoint exactly. A setpoint change, also during a ramp,
+    continues from the present value without a step.
+
+    Waveform mode (Cfg.Mode 1): an accepted start plays Data[1] to
+    Data[WaveformPoints], each for StepTimeMs, and repeats from Data[1] until
+    Repeats passes are complete (0 = endless). Then the output holds the last
+    element. Without an accepted start, nothing plays, also after a PLC start.
+    Waveforms of several outputs started in the same cycle step in lockstep.
+
+    Switching from waveform to ramp mode stops a playback and ramps from the
+    present value. Switching to waveform mode holds the present value until a
+    start. In every mode the output is clamped to LimitMin..LimitMax last.
+
+    Raw value: Value x 32767 / 10 V (16-bit +/-10 V terminals, e.g. EL4132),
+    rounded and clamped to -32768..32767. Other terminals: SetScale().
+
+    I/O (link in the I/O configuration):
+        Raw    AT %Q*  INT   channel output value
+
+    Use from ST:
+        // optional, once: other terminal scaling
+        // Ao1.SetScale(RawFullScale := 32767, ValueFullScale := 10.0);
+        // every cycle
+        Ao1();
+        Acq.Channel[2].Input := Ao1.Status.Value;   // record the output
+        // two waveforms in lockstep: start both in the same cycle
+        IF StartScan THEN
+            StartScan := FALSE;
+            AoX.Start();
+            AoY.Start();
+        END_IF
+
+    Methods (ST):
+        Start() : BOOL    same as Cmd.Start; TRUE if accepted
+        Stop() : BOOL     same as Cmd.Stop; always accepted
+        SetScale(RawFullScale : DINT; ValueFullScale : REAL) : BOOL
+                          raw = Value x RawFullScale / ValueFullScale; rejected
+                          if either is 0
+
+    Cmd (written by the client, cleared by the block when processed):
+        Start   BOOL    start the waveform. Rejected if Cfg.Mode is not 1,
+                        while playing, if WaveformPoints is outside
+                        1..GVL_Param.AO_WAVEFORM_LENGTH, StepTimeMs <= 0 or
+                        Repeats < 0.
+        Stop    BOOL    end the playback and hold the present value
+
+    Cfg (written by the client):
+        Mode            INT   live; 0 = ramp, 1 = waveform
+        Setpoint        REAL  live; V; clamped to the limits, Cfg keeps the
+                              written value
+        VelocityVPerS   REAL  live; V/s, > 0
+        LimitMin        REAL  live; V, <= LimitMax
+        LimitMax        REAL  live; V
+        WaveformPoints  DINT  at start; 1..GVL_Param.AO_WAVEFORM_LENGTH
+        StepTimeMs      REAL  at start; ms per element, > 0, rounded to whole
+                              cycles, at least 1
+        Repeats         DINT  at start; number of passes, 0 = endless
+    An invalid live value (unknown Mode, VelocityVPerS <= 0,
+    LimitMin > LimitMax) is reported as an error while it is present; the
+    block keeps the last valid value.
+
+    Status (read only):
+        State           INT         0 RAMP, 1 WAVEFORM_IDLE, 2 WAVEFORM_PLAYING
+                                    (see E_AoState)
+        StateText       STRING(20)  name of State
+        Error           BOOL        TRUE while a live value is invalid, or
+                                    after a rejected command until the next
+                                    accepted one
+        ErrorText       STRING(80)  e.g. 'Start rejected: Mode is not waveform (1)'
+        Value           REAL        V, present output value
+        Raw             INT         raw value sent to the terminal
+        SetpointReached BOOL        ramp mode: Value equals the limited setpoint
+        Limited         BOOL        the setpoint or waveform value is clamped
+        Mode            INT         mode in use
+        VelocityVPerS   REAL        V/s, velocity in use
+        LimitMin        REAL        V, limits in use
+        LimitMax        REAL        V
+        Index           DINT        waveform: element being output
+        RepeatsDone     DINT        waveform: completed passes since the start
+        WaveformPoints  DINT        waveform: points of the accepted start
+        Repeats         DINT        waveform: repeats of the accepted start
+        StepTimeMs      REAL        waveform: ms, effective step time
+
+    Data (written by the client):
+        Data            ARRAY[1..GVL_Param.AO_WAVEFORM_LENGTH] OF REAL, V.
+                        Writable at any time; a changed element is used from
+                        its next output on.
+
+    Waveform upload with TwincatAds (instance MAIN.Ao1, Data configured in
+    the device's array_symbols, the Cfg/Cmd/Status members in scalar_symbols):
+        1. Write Cfg.Mode = 1. The output holds its present value.
+        2. Write the N values with the array write command of MAIN.Ao1.Data,
+           starting at index 1.
+        3. Write Cfg.WaveformPoints = N, Cfg.StepTimeMs and Cfg.Repeats.
+        4. Write Cmd.Start = TRUE and poll until it reads FALSE.
+        5. Check Status.Error is FALSE and Status.State is 2 (WAVEFORM_PLAYING).
+        6. Follow Status.Index and Status.RepeatsDone; Status.State returns
+           to 1 when the playback is complete. Cmd.Stop ends it early.
+
+    Memory: GVL_Param.AO_WAVEFORM_LENGTH x 4 B, 4 MiB per instance with the
+    default.
+*)
+FUNCTION_BLOCK FB_AnalogOutput
+VAR_INPUT
+    Cmd : ST_AoCmd;
+    Cfg : ST_AoCfg;
+    Data : ARRAY[1..GVL_Param.AO_WAVEFORM_LENGTH] OF REAL;
+END_VAR
+VAR_OUTPUT
+    Status : ST_AoStatus;
+    Raw AT %Q* : INT;
+END_VAR
+VAR
+    State : E_AoState := E_AoState.RAMP;
+
+    // Last valid live parameters.
+    Mode : INT := 0;
+    Velocity : REAL := 1.0;
+    LimitMin : REAL := -10.0;
+    LimitMax : REAL := 10.0;
+
+    // Present output value, and the ramp's value in LREAL so that small
+    // steps are not lost to REAL resolution.
+    Value : REAL;
+    RampValue : LREAL;
+    // Limited setpoint of the ramp.
+    Target : REAL;
+    Limited : BOOL;
+
+    // Waveform working values, copied from Cfg at the accepted start.
+    WaveformPoints : DINT;
+    StepCycles : UDINT;
+    Repeats : DINT;
+    // Element in output, element value latched at the start of its step,
+    // and cycles spent on it.
+    Index : DINT := 1;
+    OutputIndex : DINT;
+    ElementValue : REAL;
+    StepCount : UDINT;
+    RepeatsDone : DINT;
+
+    // Scaling: ScaleRaw corresponds to ScaleValue.
+    ScaleRaw : DINT := 32767;
+    ScaleValue : REAL := 10.0;
+
+    // Error of the last rejected command, kept until one is accepted.
+    CmdError : BOOL;
+    CmdErrorText : STRING(80);
+    // Error of an invalid live parameter, empty while all are valid.
+    ConditionText : STRING(80);
+END_VAR
+VAR CONSTANT
+    MODE_RAMP : INT := 0;
+    MODE_WAVEFORM : INT := 1;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Live parameters, so that a start sees the mode written with it
+ApplyLiveConfig();
+
+// 2. Commands
+IF Cmd.Stop THEN
+    Cmd.Stop := FALSE;
+    Stop();
+END_IF
+IF Cmd.Start THEN
+    Cmd.Start := FALSE;
+    Start();
+END_IF
+
+// 3. Output value
+CASE State OF
+    E_AoState.RAMP:
+        StepRamp();
+    E_AoState.WAVEFORM_PLAYING:
+        StepWaveform();
+END_CASE
+ApplyLimitsAndOutput();
+
+// 4. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="AddCondition" Id="{0aff1460-2218-41bb-9b51-6ec84b3b7178}">
+      <Declaration><![CDATA[
+(*
+    Records a condition error; the first one of a cycle is reported.
+*)
+METHOD PRIVATE AddCondition
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF ConditionText = '' THEN
+    ConditionText := Text;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ApplyLimitsAndOutput" Id="{076592d5-5a9f-4126-aba4-f3f33714402e}">
+      <Declaration><![CDATA[
+(*
+    Clamps Value to the limits, keeps the ramp at the output value, and
+    converts Value to the raw output.
+*)
+METHOD PRIVATE ApplyLimitsAndOutput
+VAR
+    Unclamped : REAL;
+    RawValue : LREAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Unclamped := Value;
+Value := LIMIT(LimitMin, Unclamped, LimitMax);
+IF State = E_AoState.RAMP THEN
+    Limited := Value <> Unclamped OR Target <> Cfg.Setpoint;
+    IF Value <> Unclamped THEN
+        RampValue := Value;
+    END_IF
+ELSE
+    Limited := Value <> Unclamped;
+    // The ramp follows the output, so that ramp mode continues from here.
+    RampValue := Value;
+END_IF
+
+RawValue := REAL_TO_LREAL(Value) * DINT_TO_LREAL(ScaleRaw) / REAL_TO_LREAL(ScaleValue);
+IF RawValue >= 32767.0 THEN
+    Raw := 32767;
+ELSIF RawValue <= -32768.0 THEN
+    Raw := -32768;
+ELSE
+    // LREAL_TO_INT rounds to the nearest integer.
+    Raw := LREAL_TO_INT(RawValue);
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ApplyLiveConfig" Id="{348e28e8-d25e-4d66-ad86-73b01e757ec1}">
+      <Declaration><![CDATA[
+(*
+    Validates the live parameters. Valid values are taken over, invalid ones
+    are reported and the last valid value stays.
+*)
+METHOD PRIVATE ApplyLiveConfig
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+ConditionText := '';
+
+IF Cfg.Mode = MODE_RAMP OR Cfg.Mode = MODE_WAVEFORM THEN
+    IF Cfg.Mode <> Mode THEN
+        Mode := Cfg.Mode;
+        IF Mode = MODE_RAMP THEN
+            // Stops a playback; the ramp continues from the output value.
+            State := E_AoState.RAMP;
+        ELSE
+            State := E_AoState.WAVEFORM_IDLE;
+        END_IF
+    END_IF
+ELSE
+    AddCondition(CONCAT(CONCAT('Mode ', INT_TO_STRING(Cfg.Mode)), ' unknown (0 ramp, 1 waveform)'));
+END_IF
+
+IF Cfg.VelocityVPerS > 0.0 THEN
+    Velocity := Cfg.VelocityVPerS;
+ELSE
+    AddCondition('VelocityVPerS must be > 0');
+END_IF
+
+IF Cfg.LimitMin <= Cfg.LimitMax THEN
+    LimitMin := Cfg.LimitMin;
+    LimitMax := Cfg.LimitMax;
+ELSE
+    AddCondition('LimitMin must be <= LimitMax');
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reject" Id="{55012354-432e-4e64-92e2-dbd95c7c42e0}">
+      <Declaration><![CDATA[
+(*
+    Reports a rejected command or call. The state does not change.
+*)
+METHOD PRIVATE Reject
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CmdError := TRUE;
+CmdErrorText := Text;
+UpdateStatus();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetScale" Id="{788f4e95-ebce-47de-9472-10f97c0b4109}">
+      <Declaration><![CDATA[
+(*
+    Sets the raw scaling: raw = Value x RawFullScale / ValueFullScale.
+    Default: 32767 = 10 V. Rejected if either value is 0. Returns TRUE if
+    accepted.
+*)
+METHOD SetScale : BOOL
+VAR_INPUT
+    RawFullScale : DINT;    // raw value that corresponds to ValueFullScale
+    ValueFullScale : REAL;  // V at RawFullScale
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF RawFullScale = 0 OR ValueFullScale = 0.0 THEN
+    Reject('SetScale rejected: RawFullScale and ValueFullScale must be <> 0');
+    SetScale := FALSE;
+    RETURN;
+END_IF
+ScaleRaw := RawFullScale;
+ScaleValue := ValueFullScale;
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+SetScale := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Start" Id="{19932e60-e8b7-4e43-9038-df2ff24ec5b8}">
+      <Declaration><![CDATA[
+(*
+    Starts the waveform playback with the present Cfg; same as Cmd.Start.
+    Returns TRUE if accepted. The first element is output in the next block
+    call.
+*)
+METHOD Start : BOOL
+VAR
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Start := FALSE;
+
+IF Mode <> MODE_WAVEFORM THEN
+    Reject('Start rejected: Mode is not waveform (1)');
+    RETURN;
+END_IF
+IF State = E_AoState.WAVEFORM_PLAYING THEN
+    Reject('Start rejected: waveform playing');
+    RETURN;
+END_IF
+IF Cfg.WaveformPoints < 1 OR DINT_TO_UDINT(Cfg.WaveformPoints) > GVL_Param.AO_WAVEFORM_LENGTH THEN
+    Text := CONCAT('Start rejected: WaveformPoints ', DINT_TO_STRING(Cfg.WaveformPoints));
+    Text := CONCAT(Text, ' outside 1..');
+    Reject(CONCAT(Text, UDINT_TO_STRING(GVL_Param.AO_WAVEFORM_LENGTH)));
+    RETURN;
+END_IF
+IF Cfg.StepTimeMs <= 0.0 THEN
+    Reject('Start rejected: StepTimeMs must be > 0');
+    RETURN;
+END_IF
+IF Cfg.Repeats < 0 THEN
+    Reject('Start rejected: Repeats must be >= 0');
+    RETURN;
+END_IF
+
+WaveformPoints := Cfg.WaveformPoints;
+Repeats := Cfg.Repeats;
+StepCycles := MAX(UDINT#1, F_MsToCycles(TimeMs := Cfg.StepTimeMs));
+Status.StepTimeMs := F_CyclesToMs(Cycles := StepCycles);
+
+Index := 1;
+OutputIndex := 1;
+StepCount := 0;
+RepeatsDone := 0;
+State := E_AoState.WAVEFORM_PLAYING;
+
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Start := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StepRamp" Id="{de677cc8-ae55-4ba1-9d36-97a6e180f3eb}">
+      <Declaration><![CDATA[
+(*
+    Moves the ramp one cycle towards the limited setpoint.
+*)
+METHOD PRIVATE StepRamp
+VAR
+    StepSize : LREAL;
+    Difference : LREAL;
+END_VAR
+VAR CONSTANT
+    // Tolerance for LREAL rounding of repeated steps, relative to one step.
+    STEP_TOLERANCE : LREAL := 1.0E-6;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Target := LIMIT(LimitMin, Cfg.Setpoint, LimitMax);
+StepSize := REAL_TO_LREAL(Velocity) * UDINT_TO_LREAL(F_GetTaskCycleTime()) / 1.0E7;
+Difference := REAL_TO_LREAL(Target) - RampValue;
+
+IF ABS(Difference) <= StepSize * (1.0 + STEP_TOLERANCE) THEN
+    RampValue := Target;
+ELSIF Difference > 0.0 THEN
+    RampValue := RampValue + StepSize;
+ELSE
+    RampValue := RampValue - StepSize;
+END_IF
+Value := LREAL_TO_REAL(RampValue);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StepWaveform" Id="{b4b79eef-b990-4c0a-b533-df42fd991b84}">
+      <Declaration><![CDATA[
+(*
+    Outputs the present waveform element for one cycle and advances to the
+    next element, pass or end of the playback.
+*)
+METHOD PRIVATE StepWaveform
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF StepCount = 0 THEN
+    ElementValue := Data[Index];
+END_IF
+Value := ElementValue;
+OutputIndex := Index;
+StepCount := StepCount + 1;
+
+IF StepCount < StepCycles THEN
+    RETURN;
+END_IF
+
+StepCount := 0;
+IF Index < WaveformPoints THEN
+    Index := Index + 1;
+    RETURN;
+END_IF
+
+RepeatsDone := RepeatsDone + 1;
+IF Repeats > 0 AND RepeatsDone >= Repeats THEN
+    // Playback complete: hold the last element.
+    State := E_AoState.WAVEFORM_IDLE;
+ELSE
+    Index := 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop" Id="{43bb2ebc-3487-46ac-ad5f-5c2e21243b46}">
+      <Declaration><![CDATA[
+(*
+    Ends a waveform playback and holds the present value; same as Cmd.Stop.
+    Always accepted.
+*)
+METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF State = E_AoState.WAVEFORM_PLAYING THEN
+    State := E_AoState.WAVEFORM_IDLE;
+END_IF
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{02c7e0da-0e58-48e4-8e94-8f2467ece7d8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+IF ConditionText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := ConditionText;
+ELSE
+    Status.Error := CmdError;
+    Status.ErrorText := CmdErrorText;
+END_IF
+
+Status.Value := Value;
+Status.Raw := Raw;
+Status.SetpointReached := State = E_AoState.RAMP AND Value = Target;
+Status.Limited := Limited;
+Status.Mode := Mode;
+Status.VelocityVPerS := Velocity;
+Status.LimitMin := LimitMin;
+Status.LimitMax := LimitMax;
+Status.Index := OutputIndex;
+Status.RepeatsDone := RepeatsDone;
+Status.WaveformPoints := WaveformPoints;
+Status.Repeats := Repeats;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

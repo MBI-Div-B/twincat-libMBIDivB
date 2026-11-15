@@ -1,0 +1,101 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_ShutterControl" Id="{1dc16e7e-f633-4da2-95e5-89209d909f48}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_ShutterControl - digital output from a hardware and a software signal
+
+    Switches a digital output, e.g. a shutter, from a physical digital input
+    (hardware signal) and Cfg.SoftwareSignal, combined according to Cfg.Mode.
+    The output is computed in every call; signals are not inverted.
+
+    Mode codes:
+        0  AND  output = hardware AND software
+        1  OR   output = hardware OR software
+        2  HW   output = hardware signal only
+        3  SW   output = software signal only
+
+    After a PLC start the mode is SW and the software signal FALSE, so the
+    output is FALSE until a client or the experiment program changes them.
+    Mode and software signal are not retained across PLC restarts.
+
+    I/O (link in the I/O configuration):
+        HwInput  AT %I*  BOOL  digital input channel (hardware signal)
+        Output   AT %Q*  BOOL  digital output channel (shutter)
+
+    Use from ST, every cycle:
+        Shutter1();
+
+    Cfg (written by the client):
+        Mode            INT   live; mode code, see above. An unknown value is
+                              reported as an error while it is present, and
+                              the last valid mode stays in use.
+        SoftwareSignal  BOOL  live; software signal
+
+    Status (read only):
+        State       INT         always 0
+        StateText   STRING(20)  always 'ACTIVE'
+        Error       BOOL        TRUE while Cfg.Mode is unknown
+        ErrorText   STRING(80)  e.g. 'Mode 7 unknown (0 AND, 1 OR, 2 HW, 3 SW)'
+        HwSignal    BOOL        hardware input signal
+        SwSignal    BOOL        software signal
+        Mode        INT         mode in use
+        ModeText    STRING(10)  'AND', 'OR', 'HW' or 'SW'
+        Output      BOOL        output signal
+*)
+FUNCTION_BLOCK FB_ShutterControl
+VAR_INPUT
+    Cfg : ST_ShutterCfg;
+    HwInput AT %I* : BOOL;
+END_VAR
+VAR_OUTPUT
+    Status : ST_ShutterStatus;
+    Output AT %Q* : BOOL;
+END_VAR
+VAR
+    // Last valid mode.
+    Mode : INT := 3;
+END_VAR
+VAR CONSTANT
+    MODE_AND : INT := 0;
+    MODE_OR : INT := 1;
+    MODE_HW : INT := 2;
+    MODE_SW : INT := 3;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF Cfg.Mode >= MODE_AND AND Cfg.Mode <= MODE_SW THEN
+    Mode := Cfg.Mode;
+    Status.Error := FALSE;
+    Status.ErrorText := '';
+ELSE
+    Status.Error := TRUE;
+    Status.ErrorText := CONCAT(CONCAT('Mode ', INT_TO_STRING(Cfg.Mode)), ' unknown (0 AND, 1 OR, 2 HW, 3 SW)');
+END_IF
+
+CASE Mode OF
+    MODE_AND:
+        Output := HwInput AND Cfg.SoftwareSignal;
+        Status.ModeText := 'AND';
+    MODE_OR:
+        Output := HwInput OR Cfg.SoftwareSignal;
+        Status.ModeText := 'OR';
+    MODE_HW:
+        Output := HwInput;
+        Status.ModeText := 'HW';
+    MODE_SW:
+        Output := Cfg.SoftwareSignal;
+        Status.ModeText := 'SW';
+END_CASE
+
+Status.State := 0;
+Status.StateText := 'ACTIVE';
+Status.HwSignal := HwInput;
+Status.SwSignal := Cfg.SoftwareSignal;
+Status.Mode := Mode;
+Status.Output := Output;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

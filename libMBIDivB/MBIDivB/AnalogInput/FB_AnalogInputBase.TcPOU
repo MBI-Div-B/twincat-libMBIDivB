@@ -1,0 +1,230 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_AnalogInputBase" Id="{801a0ae6-15eb-4da1-a56d-d23a3324e722}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Common part of FB_AnalogInput16 and FB_AnalogInput32: linear scaling,
+    moving average and error reporting. Do not instantiate this block; use
+    one of the typed blocks, whose headers document the interface.
+
+    The typed blocks pass their raw value and status bits to Update() in
+    every call.
+*)
+FUNCTION_BLOCK FB_AnalogInputBase
+VAR_INPUT
+    Cfg : ST_AiCfg;
+END_VAR
+VAR_OUTPUT
+    Status : ST_AiStatus;
+END_VAR
+VAR
+    // Active scaling: ScaleRaw corresponds to ScaleValue.
+    ScaleRaw : DINT := 32767;
+    ScaleValue : REAL := 10.0;
+    // TRUE once a scaling was set explicitly or as a block default.
+    ScaleSet : BOOL;
+
+    // Error of the last rejected method call, kept until a call is accepted.
+    CallError : BOOL;
+    CallErrorText : STRING(80);
+    // Error from the terminal status bits, empty while no bit is set.
+    ConditionText : STRING(80);
+
+    // Moving average: ring buffer of the last FilterLength values.
+    FilterBuffer : ARRAY[1..GVL_Param.AI_FILTER_MAX_LENGTH] OF REAL;
+    FilterLength : UDINT;
+    FilterCount : UDINT;
+    FilterIndex : UDINT := 1;
+    FilterSum : LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// Intentionally empty: the typed blocks call Update().
+]]></ST>
+    </Implementation>
+    <Method Name="SetScale" Id="{53fe766c-e551-463f-b472-01683bd69bc2}">
+      <Declaration><![CDATA[
+(*
+    Sets a manual scaling: Status.Value = raw x ValueFullScale / RawFullScale.
+    A RawFullScale of 0 is rejected with an error and the previous scaling
+    stays. Returns TRUE if accepted.
+*)
+METHOD SetScale : BOOL
+VAR_INPUT
+    RawFullScale : DINT;    // raw value that corresponds to ValueFullScale
+    ValueFullScale : REAL;  // engineering value at RawFullScale
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF RawFullScale = 0 THEN
+    CallError := TRUE;
+    CallErrorText := 'SetScale rejected: RawFullScale 0';
+    UpdateErrorStatus();
+    SetScale := FALSE;
+    RETURN;
+END_IF
+
+ScaleRaw := RawFullScale;
+ScaleValue := ValueFullScale;
+ScaleSet := TRUE;
+CallError := FALSE;
+CallErrorText := '';
+Status.RawFullScale := ScaleRaw;
+Status.ValueFullScale := ScaleValue;
+UpdateErrorStatus();
+SetScale := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetScalePreset" Id="{e625f3e8-d02d-4e2a-9140-0a417520e421}">
+      <Declaration><![CDATA[
+(*
+    Sets the scaling of a terminal family and range, see E_AiScalePreset.
+    Returns TRUE if accepted.
+*)
+METHOD SetScalePreset : BOOL
+VAR_INPUT
+    Preset : E_AiScalePreset;
+    NominalFullScale : REAL;  // nominal full scale in engineering units, e.g. 10.0 for +/-10 V
+END_VAR
+VAR CONSTANT
+    EL31XX_RAW_FULL_SCALE : DINT := 32767;
+    EL31XX_EXTENDED_FACTOR : REAL := 1.0737;
+    ELM3XXX_RAW_FULL_SCALE : DINT := 8388607;
+    ELM3XXX_EXTENDED_RAW_NOMINAL : DINT := 7812500;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CASE Preset OF
+    E_AiScalePreset.EL31XX_LEGACY:
+        SetScalePreset := SetScale(RawFullScale := EL31XX_RAW_FULL_SCALE, ValueFullScale := NominalFullScale);
+    E_AiScalePreset.EL31XX_EXTENDED:
+        SetScalePreset := SetScale(RawFullScale := EL31XX_RAW_FULL_SCALE, ValueFullScale := NominalFullScale * EL31XX_EXTENDED_FACTOR);
+    E_AiScalePreset.ELM3XXX_EXTENDED:
+        SetScalePreset := SetScale(RawFullScale := ELM3XXX_EXTENDED_RAW_NOMINAL, ValueFullScale := NominalFullScale);
+    E_AiScalePreset.ELM3XXX_LEGACY:
+        SetScalePreset := SetScale(RawFullScale := ELM3XXX_RAW_FULL_SCALE, ValueFullScale := NominalFullScale);
+ELSE
+    CallError := TRUE;
+    CallErrorText := 'SetScalePreset rejected: unknown Preset';
+    UpdateErrorStatus();
+    SetScalePreset := FALSE;
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Update" Id="{d5318805-3a3a-48c4-9743-023df95f16fa}">
+      <Declaration><![CDATA[
+(*
+    Converts one raw value and evaluates the terminal status bits. Called by
+    the typed blocks in every call.
+*)
+METHOD PROTECTED Update
+VAR_INPUT
+    Raw : DINT;
+    TerminalError : BOOL;
+    Overrange : BOOL;
+    Underrange : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.Raw := Raw;
+Status.Value := LREAL_TO_REAL(DINT_TO_LREAL(Raw) * ScaleValue / DINT_TO_LREAL(ScaleRaw));
+Status.RawFullScale := ScaleRaw;
+Status.ValueFullScale := ScaleValue;
+UpdateFilter();
+
+IF TerminalError THEN
+    ConditionText := 'Terminal reports error';
+ELSIF Overrange THEN
+    ConditionText := 'Terminal reports overrange';
+ELSIF Underrange THEN
+    ConditionText := 'Terminal reports underrange';
+ELSE
+    ConditionText := '';
+END_IF
+UpdateErrorStatus();
+
+Status.State := 0;
+Status.StateText := 'ACTIVE';
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateFilter" Id="{73f18961-1832-4f0e-a7e4-409388174079}">
+      <Declaration><![CDATA[
+(*
+    Adds Status.Value to the moving average. O(1) per call: the sum is kept
+    in LREAL and recomputed once per pass through the ring to bound rounding
+    drift. Applies Cfg.FilterSize live and restarts the average on a change.
+*)
+METHOD PRIVATE UpdateFilter
+VAR
+    MaxLength : DINT;
+    Length : UDINT;
+    Index : UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+MaxLength := UDINT_TO_DINT(GVL_Param.AI_FILTER_MAX_LENGTH);
+IF Cfg.FilterSize < 1 THEN
+    Cfg.FilterSize := 1;
+ELSIF Cfg.FilterSize > MaxLength THEN
+    Cfg.FilterSize := MaxLength;
+END_IF
+Length := DINT_TO_UDINT(Cfg.FilterSize);
+
+IF Length <> FilterLength THEN
+    FilterLength := Length;
+    FilterCount := 0;
+    FilterIndex := 1;
+    FilterSum := 0.0;
+END_IF
+
+IF FilterCount = FilterLength THEN
+    FilterSum := FilterSum - FilterBuffer[FilterIndex];
+ELSE
+    FilterCount := FilterCount + 1;
+END_IF
+FilterBuffer[FilterIndex] := Status.Value;
+FilterSum := FilterSum + Status.Value;
+
+FilterIndex := FilterIndex + 1;
+IF FilterIndex > FilterLength THEN
+    FilterIndex := 1;
+    FilterSum := 0.0;
+    FOR Index := 1 TO FilterCount DO
+        FilterSum := FilterSum + FilterBuffer[Index];
+    END_FOR
+END_IF
+
+Status.ValueFiltered := LREAL_TO_REAL(FilterSum / UDINT_TO_LREAL(FilterCount));
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateErrorStatus" Id="{d88a5472-3516-41f9-a207-df278cfa8e1c}">
+      <Declaration><![CDATA[
+(*
+    Writes Status.Error/ErrorText. A terminal status bit takes precedence over
+    the error of a rejected method call.
+*)
+METHOD PRIVATE UpdateErrorStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF ConditionText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := ConditionText;
+ELSE
+    Status.Error := CallError;
+    Status.ErrorText := CallErrorText;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="PRG_EXAMPLE" Id="{9ad8c1ed-7c5b-4f7b-8335-88cde6e66e03}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Example experiment program: every MBIDivB block, wired as an experiment's
+    MAIN would do it. Driven over ADS from Linux by tools/ads_example.py
+    (task 10.3 of openspec/changes/redesign-library-v1).
+
+    No I/O is linked here. The program simulates the inputs instead:
+    a sawtooth on Ai1, 20 Hz flow sensor pulses, and an EL2595 that reports
+    "ready to activate". Counter/timer channel 4 records the cycle number,
+    so that the client can check the acquisition timing.
+
+    Client-facing symbols: PRG_EXAMPLE.<instance>.Cmd/.Cfg/.Status, the data
+    arrays PRG_EXAMPLE.Acq.Channel[c].Data and PRG_EXAMPLE.Ao1.Data, and
+    PRG_EXAMPLE.StartAllTriggers for the group start of enabled triggers.
+*)
+PROGRAM PRG_EXAMPLE
+VAR
+    Ai1 : MBIDivB.FB_AnalogInput16;
+    Ai2 : MBIDivB.FB_AnalogInput32;
+    Acq : MBIDivB.FB_CounterTimer;
+    Ao1 : MBIDivB.FB_AnalogOutput;
+    Trig1 : MBIDivB.FB_MultiTrigger;
+    Trig2 : MBIDivB.FB_MultiTrigger;
+    Flow1 : MBIDivB.FB_FlowMeter;
+    Shutter1 : MBIDivB.FB_ShutterControl;
+    Led1 : MBIDivB.FB_LedControl;
+
+    // Written TRUE by the client: starts all triggers with Cfg.Enabled.
+    StartAllTriggers : BOOL;
+
+    Initialized : BOOL;
+    // Simulation: cycles since the PLC start.
+    Cycle : UDINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// Initialization: terminal scaling
+IF NOT Initialized THEN
+    Initialized := TRUE;
+    Ai1.SetScalePreset(Preset := MBIDivB.E_AiScalePreset.EL31XX_LEGACY, NominalFullScale := 10.0);
+    Ai2.SetScalePreset(Preset := MBIDivB.E_AiScalePreset.ELM3XXX_EXTENDED, NominalFullScale := 10.0);
+END_IF
+
+// Simulated inputs (unlinked in this project)
+Cycle := Cycle + 1;
+Ai1.Raw := UDINT_TO_INT(Cycle MOD 1000) * 32;
+Flow1.SensorInput := Cycle MOD 50 = 0;
+Led1.StatusWord := 16#0001;
+
+// Group start of the enabled triggers, before the trigger calls
+IF StartAllTriggers THEN
+    StartAllTriggers := FALSE;
+    Trig1.StartIfEnabled();
+    Trig2.StartIfEnabled();
+END_IF
+
+// Blocks
+Ai1();
+Ai2();
+Ao1();
+Trig1();
+Trig2();
+Flow1();
+Shutter1();
+Led1();
+
+// Acquisition: channel inputs, then the block call, gated by trigger 1
+Acq.Channel[1].Input := Ai1.Status.Value;
+Acq.Channel[2].Input := Ao1.Status.Value;
+Acq.Channel[3].Input := Flow1.Status.FlowRate;
+Acq.Channel[4].Input := UDINT_TO_REAL(Cycle);
+Acq(Gate := Trig1.Status.Output);
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

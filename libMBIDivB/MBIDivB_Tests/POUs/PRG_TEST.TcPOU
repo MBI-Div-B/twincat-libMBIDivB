@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="PRG_TEST" Id="{5001baa3-d01b-476f-bc0d-9bc628a98dd3}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Runs all MBIDivB test suites with TcUnit. Call it from the test task
+    (1 ms cycle time).
+*)
+PROGRAM PRG_TEST
+VAR
+    TimeTest : FB_TimeTest;
+    ParameterTest : FB_ParameterTest;
+    AnalogInputTest : FB_AnalogInputTest;
+    CounterTimerTest : FB_CounterTimerTest;
+    AnalogOutputTest : FB_AnalogOutputTest;
+    MultiTriggerTest : FB_MultiTriggerTest;
+    FlowMeterTest : FB_FlowMeterTest;
+    ShutterControlTest : FB_ShutterControlTest;
+    LedControlTest : FB_LedControlTest;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+TcUnit.RUN();
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

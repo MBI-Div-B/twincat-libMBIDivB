@@ -1,0 +1,35 @@
+# Formatting and hygiene for TwinCAT sources (design.md, Decision 12).
+# Run once after cloning:   pre-commit install
+# Check the whole tree:     pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: \.(TcPOU|TcDUT|TcGVL)$
+
+  - repo: https://github.com/pcdshub/pre-commit-hooks
+    rev: v1.7.2
+    hooks:
+      - id: twincat-lineids-remover
+      - id: twincat-xml-format
+      - id: no-product-version
+      - id: twincat-st-newline
+      - id: twincat-leading-tabs-remover
+
+  # twincat-tools has no pre-commit hook definitions of its own, so its
+  # command line tools run as local hooks. Both read .editorconfig.
+  - repo: local
+    hooks:
+      - id: tc-format
+        name: TwinCAT ST formatter (twincat-tools)
+        entry: tc_format
+        language: python
+        additional_dependencies: ["twincat-tools==0.1.9"]
+        files: \.(TcPOU|TcDUT|TcGVL)$
+      - id: tc-xml-sort
+        name: TwinCAT project XML sorter (twincat-tools)
+        entry: tc_xml_sort
+        language: python
+        additional_dependencies: ["twincat-tools==0.1.9"]
+        files: \.(tsproj|xti|plcproj)$
