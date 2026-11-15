@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="MultiADC" Id="{5d51ae96-5d37-4bd4-8da3-0d57bcc05741}" SpecialFunc="None">
+    <Declaration><![CDATA[(*
+:Description: This function block serves as a unified interface for an array of ADC Counter/Timer
+
+TODO: Don't use static length
+*)
+FUNCTION_BLOCK MultiADC
+VAR CONSTANT
+	numADC: UINT := 4;
+END_VAR
+VAR
+	ADCs: ARRAY [1..numADC] OF AnalogInput;
+	Start: BOOL := FALSE;
+	Stop: BOOL := FALSE;
+	Prepare: BOOL := FALSE;
+	IntegrationTimeMS: UDINT := 100;
+	LatencyTimeMS: UDINT := 100;
+	NumMeasurements: UDINT := 1;
+	i: UINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FOR i := 1 TO numADC DO
+	ADCs[i](); 
+END_FOR
+
+IF Prepare THEN
+	FOR i := 1 TO numADC DO
+		ADCs[i].valuebuffer.PrepareMeasurement(
+			nAccumMilliseconds:=IntegrationTimeMS,
+			nDelayMilliseconds:=LatencyTimeMS,
+			nMeasurements:=NumMeasurements); 
+	END_FOR
+	Prepare := FALSE;
+END_IF
+
+IF Start THEN
+	FOR i := 1 TO numADC DO
+		ADCs[i].valuebuffer.StartBuffer(); 
+	END_FOR
+	Start := FALSE;
+END_IF
+
+IF Stop THEN
+	FOR i := 1 TO numADC DO
+		ADCs[i].valuebuffer.StopBuffer(); 
+	END_FOR
+	Stop := FALSE;
+END_IF
+
+]]></ST>
+    </Implementation>
+    <Method Name="setScale" Id="{71d43aca-1da3-441a-b281-91f98c04f9d2}">
+      <Declaration><![CDATA[METHOD setScale
+VAR_INPUT
+	AdcIndex: UINT;
+	maxInteger: DINT;
+	maxValue: REAL;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[ADCs[AdcIndex].setScale(maxInteger, maxValue);]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="MultiADC">
+      <LineId Id="67" Count="1" />
+      <LineId Id="66" Count="0" />
+      <LineId Id="75" Count="9" />
+      <LineId Id="36" Count="1" />
+      <LineId Id="71" Count="0" />
+      <LineId Id="42" Count="2" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="46" Count="5" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="52" Count="0" />
+    </LineIds>
+    <LineIds Name="MultiADC.setScale">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

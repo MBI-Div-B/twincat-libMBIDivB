@@ -6,6 +6,7 @@ VAR
 	Output AT %Q*: BOOL;
 	Start: BOOL := FALSE;
 	Active: BOOL := FALSE;
+	Enabled: BOOL := FALSE;
 	State: TriggerState := TriggerState.STOPPED;
 	TicksDelay: UINT := 0;
 	TicksHigh: UINT := 100;
@@ -94,11 +95,13 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[NumCurrent := 0;
-IF TicksDelay > 0 THEN
-	setState(Target:=TriggerState.DELAY);
-ELSE
-	setState(Target:=TriggerState.ACTIVE_HIGH);
+        <ST><![CDATA[IF Enabled THEN
+	NumCurrent := 0;
+	IF TicksDelay > 0 THEN
+		setState(Target:=TriggerState.DELAY);
+	ELSE
+		setState(Target:=TriggerState.ACTIVE_HIGH);
+	END_IF
 END_IF]]></ST>
       </Implementation>
     </Method>
@@ -151,8 +154,10 @@ END_IF]]></ST>
       <LineId Id="6" Count="0" />
     </LineIds>
     <LineIds Name="MultiTrigger.startTrigger">
+      <LineId Id="29" Count="0" />
       <LineId Id="18" Count="4" />
       <LineId Id="17" Count="0" />
+      <LineId Id="30" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

@@ -31,5 +31,25 @@
       <From>start</From>
       <To>startTrigger</To>
     </RenamedType>
+    <RenamedType>
+      <Type guid="6b186138-0550-4be7-ae3c-f50b66a8d887">OUTPUTREPLAYBUFFER</Type>
+      <From>OutputReplayBuffer</From>
+      <To>OutputBuffer</To>
+    </RenamedType>
+    <RenamedSymbol>
+      <Type guid="5fec00ef-dcbc-4fd7-a0ec-c0254bec1994">MultiValueBuffer</Type>
+      <From>numADC</From>
+      <To>numBuffers</To>
+    </RenamedSymbol>
+    <RenamedType>
+      <Type guid="5fec00ef-dcbc-4fd7-a0ec-c0254bec1994">MULTIVALUEBUFFER</Type>
+      <From>MultiADC_1</From>
+      <To>MultiCounterTimer</To>
+    </RenamedType>
+    <RenamedSymbol>
+      <Type guid="5fec00ef-dcbc-4fd7-a0ec-c0254bec1994">MultiCounterTimer</Type>
+      <From>ADCs</From>
+      <To>Buffers</To>
+    </RenamedSymbol>
   </Renames>
 </Refactors>

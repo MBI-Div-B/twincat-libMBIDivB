@@ -26,6 +26,18 @@ fVoltageFiltered := filterbuffer.CalculateMean();
 valuebuffer(fValue:=fVoltage);  // makes sure buffer in initialized and calls StoreValueConditional
 ]]></ST>
     </Implementation>
+    <Method Name="setScale" Id="{f0be820f-2769-4945-9a37-818115be3917}">
+      <Declaration><![CDATA[METHOD setScale
+VAR_INPUT
+	maxInteger: DINT;
+	maxValue: REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[nMaxRawValue := maxInteger;
+fMaxVoltage := maxValue;]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="AnalogInput">
       <LineId Id="3" Count="0" />
       <LineId Id="39" Count="0" />
@@ -36,6 +48,9 @@ valuebuffer(fValue:=fVoltage);  // makes sure buffer in initialized and calls St
       <LineId Id="22" Count="0" />
       <LineId Id="5" Count="0" />
       <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="AnalogInput.setScale">
+      <LineId Id="5" Count="1" />
     </LineIds>
   </POU>
 </TcPlcObject>

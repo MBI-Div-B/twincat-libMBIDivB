@@ -1,0 +1,148 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+  <POU Name="OutputBuffer" Id="{6b186138-0550-4be7-ae3c-f50b66a8d887}" SpecialFunc="None">
+    <Declaration><![CDATA[(*
+Output arbitrary values from buffer.
+*Variables*
+
+State:
+	- 0: initialize buffer array values - only internal use
+	- 1: stopped - output is kept at last value
+	- 2: start - begin loop at first index
+	- 3: running - in loop
+	
+Repeats: number of repeats for entire array. Zero for unlimited repeats.
+
+IndexMax: Number of values to use from buffer.
+*)
+FUNCTION_BLOCK OutputBuffer
+VAR_OUTPUT
+	Value: REAL;
+	State: UDINT;
+END_VAR
+VAR
+	Buffer: ARRAY[0 .. globals.MAX_BUFFER_LENGTH] OF REAL;
+	IndexCurr: UDINT := 0;
+	IndexMax: UDINT;
+	IndexDelay: UDINT := 0;
+	TicksDelay: UDINT;
+	Repeats: UDINT;
+	RepeatCount: UDINT;
+	i: UDINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IndexMax := MIN(IndexMax, globals.MAX_BUFFER_LENGTH);
+TicksDelay := MIN(1, TicksDelay);
+
+IF State = 0 THEN // init
+	FOR i := 1 TO globals.MAX_BUFFER_LENGTH BY 1 DO
+		Buffer[i] := 0;
+	END_FOR
+	State := 2;
+END_IF
+
+IF State = 2 THEN  // start output from beginning
+	IndexCurr := 0;
+	RepeatCount := 0;
+	State := 3;
+END_IF
+
+IF State = 3 THEN  // running
+	IndexDelay := IndexDelay + 1;
+	IF IndexDelay >= TicksDelay THEN
+		IndexCurr := IndexCurr + 1;
+		IndexDelay := 0;	
+	END_IF
+	
+	IF IndexCurr > IndexMax THEN
+		IndexCurr := 0;
+		RepeatCount := RepeatCount + 1;
+	END_IF
+	
+	IF Repeats > 0 AND RepeatCount >= Repeats THEN
+		State := 1;
+	END_IF
+END_IF
+
+IF State = 4 THEN  // just for testing
+	FOR i := 1 TO 10000 BY 1 DO
+		Buffer[i] := SIN(3.1415927 * UDINT_TO_REAL(i) / 100.0);
+		IndexMax := 10000;
+		State := 1;
+	END_FOR
+END_IF
+
+Value := Buffer[IndexCurr];]]></ST>
+    </Implementation>
+    <Method Name="setCurrentIndex" Id="{3af0025c-8580-45eb-89b4-764fdc0656d5}">
+      <Declaration><![CDATA[METHOD setCurrentIndex
+VAR_INPUT
+	Index: UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IndexCurr := Index;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="setIndexMax" Id="{184b75c4-2b48-45cb-8049-79e967324f0a}">
+      <Declaration><![CDATA[METHOD setIndexMax
+VAR_INPUT
+	Value: UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IndexMax := Value;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="setState" Id="{ffa1a1e0-70d0-46ec-a93f-08296760f65f}">
+      <Declaration><![CDATA[METHOD setState
+VAR_INPUT
+	Target: WORD;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[State := Target;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="OutputBuffer">
+      <LineId Id="42" Count="1" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="62" Count="2" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="59" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="147" Count="0" />
+      <LineId Id="149" Count="2" />
+      <LineId Id="148" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="56" Count="2" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="65" Count="3" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="103" Count="0" />
+      <LineId Id="102" Count="0" />
+      <LineId Id="106" Count="3" />
+      <LineId Id="104" Count="1" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="36" Count="0" />
+    </LineIds>
+    <LineIds Name="OutputBuffer.setCurrentIndex">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="OutputBuffer.setIndexMax">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="OutputBuffer.setState">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -49,10 +49,19 @@
     <Compile Include="POUs\FilterRingBuffer.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="POUs\MultiADC.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\MultiCounterTimer.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\MultiTrigger.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\getTaskCycleTime.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\OutputBuffer.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\RampCtrl.TcPOU">
