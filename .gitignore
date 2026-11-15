@@ -53,3 +53,6 @@ LineIDs.dbg.bak
 
 # Generated from GVL_LibInfo.TcGVL.template by tc_git_info
 libMBIDivB/MBIDivB/GVLs/GVL_LibInfo.TcGVL
+
+# Python
+__pycache__/

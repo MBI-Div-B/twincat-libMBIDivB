@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
+    <Compile Include="Example\PRG_EXAMPLE.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="POUs\PRG_TEST.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -36,6 +39,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Example"/>
     <Folder Include="POUs"/>
     <Folder Include="Tests"/>
   </ItemGroup>

@@ -199,3 +199,42 @@ Read `GVL_LibInfo.Version` to check which library release runs on a PLC
 The library does not write CoE objects at run time. If the PLC or the
 EtherCAT bus fails, the terminal's SyncManager watchdog (default 100 ms)
 switches the output off.
+
+## ADS example
+
+`MBIDivB_Tests` contains `PRG_EXAMPLE`, which instantiates every block as an
+experiment's `MAIN` would and simulates the unlinked inputs.
+`tools/ads_example.py` drives it over ADS with [pyads](https://github.com/stlehmann/pyads)
+from Linux and checks:
+
+- every `Cmd`/`Cfg`/`Status` member has a type that pyads (and so TwincatAds)
+  can map; enumerations would be skipped;
+- the command handshake on counter/timer, trigger and waveform, a rejected
+  start, a trigger-gated acquisition, and the readout of a data array;
+- `GVL_LibInfo.Version`.
+
+Setup, once per target (example: Linux host 192.168.122.1, TwinCAT VM
+192.168.122.18 on libvirt's default network):
+
+1. **Firewall on the target.** Allow ADS (TCP 48898) from the Linux host, in
+   an administrator PowerShell:
+   ```powershell
+   New-NetFirewallRule -DisplayName "TwinCAT ADS from Linux host" -Direction Inbound `
+       -Protocol TCP -LocalPort 48898 -RemoteAddress 192.168.122.1 -Action Allow
+   ```
+2. **Route on the target.** In XAE: *SYSTEM → Routes → Add*, then enter the
+   route manually: name `linux-host`, AmsNetId `192.168.122.1.1.1`, transport
+   TCP/IP, address `192.168.122.1`, *Remote Route* **None**, *Add Route*.
+3. **Target AMS Net ID.** Shown in XAE under *SYSTEM → Routes → Current
+   Route* (usually the target's IP plus `.1.1`).
+
+Run, with `MBIDivB_Tests` activated and logged in (run mode):
+
+```sh
+pip install pyads
+python tools/ads_example.py --target-net-id 192.168.122.18.1.1 \
+    --target-ip 192.168.122.18 --local-net-id 192.168.122.1.1.1
+```
+
+The script exits with status 1 if a check fails. It leaves the example
+blocks idle, except for `Ao1`, which returns to ramp mode.
