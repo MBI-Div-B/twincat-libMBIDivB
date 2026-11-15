@@ -212,7 +212,7 @@
     <ProgramVersion>3.1.4024.0</ProgramVersion>
     <ProjectGuid>{75b04f5e-4f8a-462d-a2be-0703eebb57c9}</ProjectGuid>
     <ProjectVersion>1.0.0.0</ProjectVersion>
-    <Released>false</Released>
+    <Released>true</Released>
     <SchemaVersion>2.0</SchemaVersion>
     <SubObjectsSortedByName>True</SubObjectsSortedByName>
     <Title>MBIDivB</Title>
