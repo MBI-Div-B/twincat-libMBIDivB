@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_ParameterTest" Id="{3b6bfc90-2b8a-40c8-b895-d04f2bc2be6a}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Checks that the library parameter overrides of this test project take
+    effect (task 10.1). Expected overrides in the Library Manager:
+    CT_CHANNELS 4, CT_BUFFER_LENGTH 1000, AO_WAVEFORM_LENGTH 1000,
+    FLOW_BUFFER_LENGTH 100.
+*)
+FUNCTION_BLOCK FB_ParameterTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    Ct : MBIDivB.FB_CounterTimer;
+    Ao : MBIDivB.FB_AnalogOutput;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+OverridesSetArrayBounds();
+]]></ST>
+    </Implementation>
+    <Method Name="OverridesSetArrayBounds" Id="{0025bd3e-2822-4acd-8f08-b5280262c6f9}">
+      <Declaration><![CDATA[
+METHOD PRIVATE OverridesSetArrayBounds
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('OverridesSetArrayBounds');
+
+AssertEquals_DINT(Expected := 4, Actual := UPPER_BOUND(Ct.Channel, 1), Message := 'CT_CHANNELS');
+AssertEquals_DINT(Expected := 1000, Actual := UPPER_BOUND(Ct.Channel[1].Data, 1), Message := 'CT_BUFFER_LENGTH');
+AssertEquals_DINT(Expected := 1000, Actual := UPPER_BOUND(Ao.Data, 1), Message := 'AO_WAVEFORM_LENGTH');
+AssertEquals_UDINT(Expected := 100, Actual := MBIDivB.GVL_Param.FLOW_BUFFER_LENGTH, Message := 'FLOW_BUFFER_LENGTH');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

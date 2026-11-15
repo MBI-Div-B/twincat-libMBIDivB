@@ -1,0 +1,73 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_FlowMeterTest" Id="{9c4e9b19-1827-41dc-a61d-e387e7f3578e}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_FlowMeter (specs/flow-meter). The overrun test needs
+    FLOW_BUFFER_LENGTH < 500, because a 1 ms task produces at most 500 edges
+    per second.
+*)
+FUNCTION_BLOCK FB_FlowMeterTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    FlowSteady : MBIDivB.FB_FlowMeter;
+    FlowOverrun : MBIDivB.FB_FlowMeter;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+SteadyPulsesThenStop();
+OverrunError();
+]]></ST>
+    </Implementation>
+    <Method Name="OverrunError" Id="{754170df-c87c-474f-968d-ad1a957e6492}">
+      <Declaration><![CDATA[
+METHOD PRIVATE OverrunError
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('OverrunError');
+
+AssertTrue(Condition := MBIDivB.GVL_Param.FLOW_BUFFER_LENGTH < 500, Message := 'override FLOW_BUFFER_LENGTH below 500 in the test project');
+FOR Cycle := 1 TO 1000 DO
+    FlowOverrun.SensorInput := Cycle MOD 2 = 0;
+    FlowOverrun();
+END_FOR
+AssertTrue(Condition := FlowOverrun.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(FlowOverrun.Status.ErrorText, 'out of range') > 0, Message := 'ErrorText');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SteadyPulsesThenStop" Id="{4dd60ea8-c86e-4eca-b3fa-ff40b7a16af1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SteadyPulsesThenStop
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SteadyPulsesThenStop');
+
+FOR Cycle := 1 TO 5000 DO
+    FlowSteady.SensorInput := Cycle MOD 50 = 0;
+    FlowSteady();
+END_FOR
+AssertEquals_REAL(Expected := 20.0, Actual := FlowSteady.Status.FrequencyHz, Delta := 0.0, Message := '20 Hz');
+AssertEquals_REAL(Expected := 5.6, Actual := FlowSteady.Status.FlowRate, Delta := 1.0E-4, Message := 'default factor');
+FlowSteady.SensorInput := FALSE;
+FOR Cycle := 1 TO 1001 DO
+    FlowSteady();
+END_FOR
+AssertEquals_REAL(Expected := 0.0, Actual := FlowSteady.Status.FrequencyHz, Delta := 0.0, Message := 'flow stopped');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

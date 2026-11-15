@@ -1,0 +1,124 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_ShutterControlTest" Id="{899f650c-c82c-4671-b377-21a484b363f1}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_ShutterControl (specs/shutter-control).
+*)
+FUNCTION_BLOCK FB_ShutterControlTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    ShutterTable : MBIDivB.FB_ShutterControl;
+    ShutterUnknown : MBIDivB.FB_ShutterControl;
+    ShutterSoftware : MBIDivB.FB_ShutterControl;
+    ShutterStartup : MBIDivB.FB_ShutterControl;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+TruthTable();
+UnknownModeKeepsLast();
+SoftwareSwitch();
+StartupState();
+]]></ST>
+    </Implementation>
+    <Method Name="SoftwareSwitch" Id="{d1f37e9c-4529-4f14-8b29-888f4e059de7}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SoftwareSwitch
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SoftwareSwitch');
+
+ShutterSoftware();
+ShutterSoftware.Cfg.SoftwareSignal := TRUE;
+ShutterSoftware();
+AssertTrue(Condition := ShutterSoftware.Output, Message := 'output in the next call');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartupState" Id="{b1b9081f-8da6-42b7-9b40-75fe8ee7dbba}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StartupState
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StartupState');
+
+ShutterStartup.HwInput := TRUE;
+ShutterStartup();
+AssertFalse(Condition := ShutterStartup.Output, Message := 'output FALSE');
+AssertEquals_INT(Expected := 3, Actual := ShutterStartup.Status.Mode, Message := 'mode SW');
+AssertEquals_STRING(Expected := 'SW', Actual := ShutterStartup.Status.ModeText, Message := 'ModeText');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TruthTable" Id="{49e8043b-acf6-4d36-b96d-bc64a39c998b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TruthTable
+VAR
+    Mode : INT;
+    Combination : INT;
+    Hw : BOOL;
+    Sw : BOOL;
+    Expected : BOOL;
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TruthTable');
+
+FOR Mode := 0 TO 3 DO
+    FOR Combination := 0 TO 3 DO
+        Hw := Combination = 1 OR Combination = 3;
+        Sw := Combination = 2 OR Combination = 3;
+        CASE Mode OF
+            0: Expected := Hw AND Sw;
+            1: Expected := Hw OR Sw;
+            2: Expected := Hw;
+            3: Expected := Sw;
+        END_CASE
+        ShutterTable.Cfg.Mode := Mode;
+        ShutterTable.Cfg.SoftwareSignal := Sw;
+        ShutterTable.HwInput := Hw;
+        ShutterTable();
+        IF ShutterTable.Output <> Expected OR ShutterTable.Status.Output <> Expected THEN
+            Wrong := Wrong + 1;
+        END_IF
+    END_FOR
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'outputs matching the mode definitions');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UnknownModeKeepsLast" Id="{0732d8e2-5a7a-4f07-8f76-90f26848e71c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UnknownModeKeepsLast
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('UnknownModeKeepsLast');
+
+ShutterUnknown.Cfg.Mode := 1;
+ShutterUnknown();
+ShutterUnknown.Cfg.Mode := 7;
+ShutterUnknown.HwInput := TRUE;
+ShutterUnknown.Cfg.SoftwareSignal := FALSE;
+ShutterUnknown();
+AssertEquals_INT(Expected := 1, Actual := ShutterUnknown.Status.Mode, Message := 'keeps OR');
+AssertTrue(Condition := ShutterUnknown.Output, Message := 'OR output');
+AssertTrue(Condition := ShutterUnknown.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(ShutterUnknown.Status.ErrorText, 'Mode') > 0, Message := 'names the mode');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

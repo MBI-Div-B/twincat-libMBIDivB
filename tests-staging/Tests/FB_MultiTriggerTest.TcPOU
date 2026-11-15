@@ -1,0 +1,350 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_MultiTriggerTest" Id="{e34300b2-7277-407b-829f-9ed73d2f4381}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_MultiTrigger (specs/multi-trigger).
+*)
+FUNCTION_BLOCK FB_MultiTriggerTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    TrigZero : MBIDivB.FB_MultiTrigger;
+    TrigTiming : MBIDivB.FB_MultiTrigger;
+    TrigTwenty : MBIDivB.FB_MultiTrigger;
+    TrigContinuous : MBIDivB.FB_MultiTrigger;
+    TrigSubCycle : MBIDivB.FB_MultiTrigger;
+    TrigStop : MBIDivB.FB_MultiTrigger;
+    TrigProgress : MBIDivB.FB_MultiTrigger;
+    TrigGroup1 : MBIDivB.FB_MultiTrigger;
+    TrigGroup2 : MBIDivB.FB_MultiTrigger;
+    TrigGroup3 : MBIDivB.FB_MultiTrigger;
+    TrigGate : MBIDivB.FB_MultiTrigger;
+    CtGate : MBIDivB.FB_CounterTimer;
+    TrigMethod : MBIDivB.FB_MultiTrigger;
+    TrigDelayText : MBIDivB.FB_MultiTrigger;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+ZeroCountRejected();
+TimingOn1msTask();
+TwentyPulses();
+ContinuousUntilStop();
+SubCycleHighTime();
+StopDuringHigh();
+ProgressAfterThirdEdge();
+GroupStartEnabledOnly();
+GatesCounterTimer();
+MethodStartEqualsFlag();
+StateTextInDelay();
+]]></ST>
+    </Implementation>
+    <Method Name="ContinuousUntilStop" Id="{5a0bc98b-7c7e-4a8f-b6a0-1f670c689d58}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ContinuousUntilStop
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ContinuousUntilStop');
+
+TrigContinuous.Cfg.HighMs := 1.0;
+TrigContinuous.Cfg.LowMs := 1.0;
+TrigContinuous.Cfg.Count := -1;
+TrigContinuous.Cmd.Start := TRUE;
+FOR Cycle := 1 TO 1000 DO
+    TrigContinuous();
+END_FOR
+AssertTrue(Condition := TrigContinuous.Status.State <> 0, Message := 'still running');
+AssertEquals_UDINT(Expected := 500, Actual := TrigContinuous.Status.EdgesDone, Message := 'EdgesDone');
+TrigContinuous.Cmd.Stop := TRUE;
+TrigContinuous();
+AssertEquals_INT(Expected := 0, Actual := TrigContinuous.Status.State, Message := 'stopped');
+AssertFalse(Condition := TrigContinuous.Output, Message := 'output low');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GatesCounterTimer" Id="{b9b5acdd-8357-411c-bc1d-75b916cca79b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE GatesCounterTimer
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('GatesCounterTimer');
+
+TrigGate.Cfg.HighMs := 1.0;
+TrigGate.Cfg.LowMs := 9.0;
+TrigGate.Cfg.Count := 3;
+CtGate.Cfg.StartMode := 1;
+CtGate.Cfg.IntegrationTimeMs := 2.0;
+CtGate.Cfg.Points := 3;
+TrigGate.Start();
+CtGate.Start();
+FOR Cycle := 0 TO 30 DO   // edges in cycles 0, 10 and 20
+    TrigGate();
+    CtGate.Channel[1].Input := INT_TO_REAL(Cycle);
+    CtGate(Gate := TrigGate.Status.Output);
+END_FOR
+AssertEquals_DINT(Expected := 3, Actual := CtGate.Status.PointsDone, Message := 'one point per edge');
+AssertEquals_REAL(Expected := 0.5, Actual := CtGate.Channel[1].Data[1], Delta := 1.0E-6, Message := 'window 1 = cycles 0-1');
+AssertEquals_REAL(Expected := 20.5, Actual := CtGate.Channel[1].Data[3], Delta := 1.0E-6, Message := 'window 3 = cycles 20-21');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GroupStartEnabledOnly" Id="{85f12b76-3d22-4cbb-9d63-c35e84bb4b7c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE GroupStartEnabledOnly
+VAR
+    Cycle : INT;
+    Mismatch : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('GroupStartEnabledOnly');
+
+TrigGroup1.Cfg.Enabled := TRUE;
+TrigGroup2.Cfg.Enabled := TRUE;
+TrigGroup3.Cfg.Enabled := FALSE;
+TrigGroup1.Cfg.Count := 5;
+TrigGroup2.Cfg.Count := 5;
+TrigGroup3.Cfg.Count := 5;
+TrigGroup1.StartIfEnabled();
+TrigGroup2.StartIfEnabled();
+TrigGroup3.StartIfEnabled();
+FOR Cycle := 0 TO 20 DO
+    TrigGroup1();
+    TrigGroup2();
+    TrigGroup3();
+    IF TrigGroup1.Output <> TrigGroup2.Output THEN
+        Mismatch := Mismatch + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Mismatch, Message := 'aligned edges');
+AssertEquals_UDINT(Expected := 5, Actual := TrigGroup1.Status.EdgesDone, Message := 'trigger 1 ran');
+AssertEquals_UDINT(Expected := 0, Actual := TrigGroup3.Status.EdgesDone, Message := 'disabled trigger stays idle');
+AssertFalse(Condition := TrigGroup3.Status.Error, Message := 'no error on the disabled trigger');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MethodStartEqualsFlag" Id="{d2dd0465-725b-4673-a6a3-7d2e5524a034}">
+      <Declaration><![CDATA[
+METHOD PRIVATE MethodStartEqualsFlag
+VAR
+    Accepted : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('MethodStartEqualsFlag');
+
+TrigMethod.Cfg.Count := 0;
+Accepted := TrigMethod.Start();
+AssertFalse(Condition := Accepted, Message := 'rejected like the flag');
+AssertTrue(Condition := FIND(TrigMethod.Status.ErrorText, 'Count') > 0, Message := 'same error');
+TrigMethod.Cfg.Count := 1;
+TrigMethod.Cfg.DelayMs := 3.0;
+Accepted := TrigMethod.Start();
+AssertTrue(Condition := Accepted, Message := 'accepted');
+AssertFalse(Condition := TrigMethod.Status.Error, Message := 'error cleared');
+AssertEquals_INT(Expected := 1, Actual := TrigMethod.Status.State, Message := 'DELAY');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ProgressAfterThirdEdge" Id="{bc789509-b1e0-4066-a7b2-1cf37aa1db48}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ProgressAfterThirdEdge
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ProgressAfterThirdEdge');
+
+TrigProgress.Cfg.HighMs := 2.0;
+TrigProgress.Cfg.LowMs := 2.0;
+TrigProgress.Cfg.Count := 10;
+TrigProgress.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 8 DO   // edges in cycles 0, 4 and 8
+    TrigProgress();
+END_FOR
+AssertEquals_UDINT(Expected := 3, Actual := TrigProgress.Status.EdgesDone, Message := 'EdgesDone');
+AssertTrue(Condition := TrigProgress.Status.Output, Message := 'Output');
+AssertEquals_INT(Expected := 2, Actual := TrigProgress.Status.State, Message := 'HIGH');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StateTextInDelay" Id="{623aa3c2-04cf-48f9-a597-b5846a2b35b8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StateTextInDelay
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StateTextInDelay');
+
+TrigDelayText.Cfg.DelayMs := 5.0;
+TrigDelayText.Cmd.Start := TRUE;
+TrigDelayText();
+AssertEquals_INT(Expected := 1, Actual := TrigDelayText.Status.State, Message := 'State');
+AssertEquals_STRING(Expected := 'DELAY', Actual := TrigDelayText.Status.StateText, Message := 'StateText');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StopDuringHigh" Id="{ebbb4b40-1fda-4868-9dd1-056f72246c59}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StopDuringHigh
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StopDuringHigh');
+
+TrigStop.Cfg.HighMs := 10.0;
+TrigStop.Cfg.Count := 1;
+TrigStop.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 2 DO
+    TrigStop();
+END_FOR
+AssertTrue(Condition := TrigStop.Output, Message := 'high before the stop');
+TrigStop.Cmd.Stop := TRUE;
+TrigStop();
+AssertFalse(Condition := TrigStop.Output, Message := 'low in the stop cycle');
+AssertEquals_INT(Expected := 0, Actual := TrigStop.Status.State, Message := 'idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SubCycleHighTime" Id="{35f72f3b-3496-43c0-a4de-75864b0efd4c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SubCycleHighTime
+VAR
+    Cycle : INT;
+    HighCycles : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SubCycleHighTime');
+
+TrigSubCycle.Cfg.HighMs := 0.3;
+TrigSubCycle.Cfg.LowMs := 5.0;
+TrigSubCycle.Cfg.Count := 1;
+TrigSubCycle.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 10 DO
+    TrigSubCycle();
+    IF TrigSubCycle.Output THEN
+        HighCycles := HighCycles + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := HighCycles, Message := 'one high cycle');
+AssertEquals_REAL(Expected := 1.0, Actual := TrigSubCycle.Status.HighMs, Delta := 1.0E-6, Message := 'effective high time');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TimingOn1msTask" Id="{3368f662-a2dc-4a61-8426-12b17fd1d1e1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TimingOn1msTask
+VAR
+    Cycle : INT;
+    Expected : BOOL;
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TimingOn1msTask');
+
+TrigTiming.Cfg.DelayMs := 5.0;
+TrigTiming.Cfg.HighMs := 2.0;
+TrigTiming.Cfg.LowMs := 3.0;
+TrigTiming.Cfg.Count := 2;
+TrigTiming.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 20 DO
+    TrigTiming();
+    Expected := Cycle = 5 OR Cycle = 6 OR Cycle = 10 OR Cycle = 11;
+    IF TrigTiming.Output <> Expected THEN
+        Wrong := Wrong + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'high in cycles 5-6 and 10-11 only');
+AssertEquals_INT(Expected := 0, Actual := TrigTiming.Status.State, Message := 'idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TwentyPulses" Id="{3ee3ce84-51e6-4890-b704-af50c997127a}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TwentyPulses
+VAR
+    Cycle : INT;
+    Previous : BOOL;
+    Edges : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TwentyPulses');
+
+TrigTwenty.Cfg.HighMs := 1.0;
+TrigTwenty.Cfg.LowMs := 1.0;
+TrigTwenty.Cfg.Count := 20;
+TrigTwenty.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 100 DO
+    TrigTwenty();
+    IF TrigTwenty.Output AND NOT Previous THEN
+        Edges := Edges + 1;
+    END_IF
+    Previous := TrigTwenty.Output;
+END_FOR
+AssertEquals_INT(Expected := 20, Actual := Edges, Message := 'exactly 20 rising edges');
+AssertEquals_UDINT(Expected := 20, Actual := TrigTwenty.Status.EdgesDone, Message := 'EdgesDone');
+AssertEquals_INT(Expected := 0, Actual := TrigTwenty.Status.State, Message := 'idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ZeroCountRejected" Id="{acf7a897-c48b-423a-a95a-6a4d0679da0a}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ZeroCountRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ZeroCountRejected');
+
+TrigZero.Cfg.Count := 0;
+TrigZero.Cmd.Start := TRUE;
+TrigZero();
+AssertTrue(Condition := TrigZero.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(TrigZero.Status.ErrorText, 'Count') > 0, Message := 'names Count');
+AssertEquals_INT(Expected := 0, Actual := TrigZero.Status.State, Message := 'idle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

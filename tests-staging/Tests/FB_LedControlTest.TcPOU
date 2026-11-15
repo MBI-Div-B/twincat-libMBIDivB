@@ -1,0 +1,316 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_LedControlTest" Id="{6a76b53c-dbd5-4e33-b014-ef0d00e32b60}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_LedControl (specs/led-control) with simulated EL2595 status
+    words. Status word bits: 0 ready, 1 output active, 6 warning, 7 error.
+    Control word bits: 1 output, 7 reset.
+*)
+FUNCTION_BLOCK FB_LedControlTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    LedOnOff : MBIDivB.FB_LedControl;
+    LedNotReady : MBIDivB.FB_LedControl;
+    LedTimeout : MBIDivB.FB_LedControl;
+    LedTimeout50 : MBIDivB.FB_LedControl;
+    LedUnlimited : MBIDivB.FB_LedControl;
+    LedNegative : MBIDivB.FB_LedControl;
+    LedOnTime : MBIDivB.FB_LedControl;
+    LedCurrent : MBIDivB.FB_LedControl;
+    LedRange : MBIDivB.FB_LedControl;
+    LedReadback : MBIDivB.FB_LedControl;
+    LedFault : MBIDivB.FB_LedControl;
+    LedReset : MBIDivB.FB_LedControl;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+SwitchOnAndOff();
+NotReadyRejected();
+Timeout500ms();
+Timeout50ms();
+UnlimitedOnTime();
+NegativeMaxOnTimeRejected();
+OnTimeDisplayed();
+CurrentChangeWhileOn();
+CurrentOutOfRange();
+VoltageAndCurrentReadback();
+TerminalErrorToFault();
+ResetPulseOneCycle();
+]]></ST>
+    </Implementation>
+    <Method Name="CurrentChangeWhileOn" Id="{ee5fe054-b02c-45b0-bb45-1db2b15c4853}">
+      <Declaration><![CDATA[
+METHOD PRIVATE CurrentChangeWhileOn
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('CurrentChangeWhileOn');
+
+LedCurrent.StatusWord := 16#0001;
+LedCurrent.Cfg.CurrentMa := 400;
+LedCurrent.Cmd.On := TRUE;
+LedCurrent();
+AssertEquals_UINT(Expected := 400, Actual := LedCurrent.CurrentSetpoint, Message := '400 mA');
+LedCurrent.Cfg.CurrentMa := 500;
+LedCurrent();
+AssertEquals_UINT(Expected := 500, Actual := LedCurrent.CurrentSetpoint, Message := '500 mA in the next cycle');
+AssertEquals_INT(Expected := 1, Actual := LedCurrent.Status.State, Message := 'still on');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CurrentOutOfRange" Id="{a85384e2-b595-49db-84bd-cd70878f504f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE CurrentOutOfRange
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('CurrentOutOfRange');
+
+LedRange.Cfg.CurrentMa := 400;
+LedRange();
+LedRange.Cfg.CurrentMa := 1000;
+LedRange();
+AssertEquals_UINT(Expected := 400, Actual := LedRange.CurrentSetpoint, Message := 'last valid value kept');
+AssertTrue(Condition := FIND(LedRange.Status.ErrorText, 'CurrentMa') > 0, Message := 'names CurrentMa');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NegativeMaxOnTimeRejected" Id="{9bc81127-918f-45f7-a983-5b824ad8f0ff}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NegativeMaxOnTimeRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NegativeMaxOnTimeRejected');
+
+LedNegative.StatusWord := 16#0001;
+LedNegative.Cfg.MaxOnTimeMs := -1.0;
+LedNegative.Cmd.On := TRUE;
+LedNegative();
+AssertEquals_INT(Expected := 0, Actual := LedNegative.Status.State, Message := 'stays off');
+AssertTrue(Condition := FIND(LedNegative.Status.ErrorText, 'MaxOnTimeMs') > 0, Message := 'names MaxOnTimeMs');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NotReadyRejected" Id="{4d801745-8fda-49cd-ad3d-94b1fbdf9006}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NotReadyRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NotReadyRejected');
+
+LedNotReady.StatusWord := 16#0000;
+LedNotReady.Cmd.On := TRUE;
+LedNotReady();
+AssertTrue(Condition := (LedNotReady.ControlWord AND 16#0002) = 0, Message := 'stays off');
+AssertTrue(Condition := LedNotReady.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(LedNotReady.Status.ErrorText, 'not ready') > 0, Message := 'ErrorText');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="OnTimeDisplayed" Id="{c702151d-6554-4af3-9b03-d284095b8b68}">
+      <Declaration><![CDATA[
+METHOD PRIVATE OnTimeDisplayed
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('OnTimeDisplayed');
+
+LedOnTime.StatusWord := 16#0001;
+LedOnTime.Cmd.On := TRUE;
+FOR Cycle := 1 TO 200 DO
+    LedOnTime();
+END_FOR
+AssertEquals_REAL(Expected := 200.0, Actual := LedOnTime.Status.OnTimeMs, Delta := 1.0, Message := 'OnTimeMs while on');
+LedOnTime.Cmd.On := TRUE;   // accepted without restarting the on time
+LedOnTime();
+AssertEquals_REAL(Expected := 201.0, Actual := LedOnTime.Status.OnTimeMs, Delta := 1.0, Message := 'On while on keeps the on time');
+LedOnTime.Cmd.Off := TRUE;
+FOR Cycle := 1 TO 50 DO
+    LedOnTime();
+END_FOR
+AssertEquals_REAL(Expected := 201.0, Actual := LedOnTime.Status.OnTimeMs, Delta := 1.0, Message := 'last on period while off');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ResetPulseOneCycle" Id="{0281effb-a2e3-41f8-9bf4-6082cf1e186b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ResetPulseOneCycle
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ResetPulseOneCycle');
+
+LedReset.Cmd.Reset := TRUE;
+LedReset();
+AssertTrue(Condition := (LedReset.ControlWord AND 16#0080) <> 0, Message := 'reset bit set');
+LedReset();
+AssertTrue(Condition := (LedReset.ControlWord AND 16#0080) = 0, Message := 'reset bit cleared after one cycle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SwitchOnAndOff" Id="{4abcf9d3-e504-406e-b069-60c77cb74173}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SwitchOnAndOff
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SwitchOnAndOff');
+
+LedOnOff();
+AssertEquals_INT(Expected := 0, Actual := LedOnOff.Status.State, Message := 'off after start');
+LedOnOff.StatusWord := 16#0001;
+LedOnOff.Cmd.On := TRUE;
+LedOnOff();
+AssertTrue(Condition := (LedOnOff.ControlWord AND 16#0002) <> 0, Message := 'output bit set');
+AssertEquals_STRING(Expected := 'ON', Actual := LedOnOff.Status.StateText, Message := 'ON');
+LedOnOff.Cmd.Off := TRUE;
+LedOnOff();
+AssertTrue(Condition := (LedOnOff.ControlWord AND 16#0002) = 0, Message := 'output bit cleared');
+AssertEquals_STRING(Expected := 'OFF', Actual := LedOnOff.Status.StateText, Message := 'OFF');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TerminalErrorToFault" Id="{2ba7731d-0a07-4f31-8860-c8a31469883d}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TerminalErrorToFault
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TerminalErrorToFault');
+
+LedFault.StatusWord := 16#0001;
+LedFault.Cmd.On := TRUE;
+LedFault();
+LedFault.StatusWord := 16#0081;
+LedFault();
+AssertTrue(Condition := (LedFault.ControlWord AND 16#0002) = 0, Message := 'output deactivated');
+AssertEquals_STRING(Expected := 'FAULT', Actual := LedFault.Status.StateText, Message := 'FAULT');
+AssertTrue(Condition := LedFault.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(LedFault.Status.ErrorText, '0xA000') > 0, Message := 'refers to the diag data');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timeout500ms" Id="{25c251d5-ef7b-4698-9cb5-09b3baba8f1c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE Timeout500ms
+VAR
+    Cycle : INT;
+    OnCycles : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('Timeout500ms');
+
+LedTimeout.StatusWord := 16#0001;
+LedTimeout.Cfg.MaxOnTimeMs := 500.0;
+LedTimeout.Cmd.On := TRUE;
+FOR Cycle := 1 TO 600 DO
+    LedTimeout();
+    IF (LedTimeout.ControlWord AND 16#0002) <> 0 THEN
+        OnCycles := OnCycles + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 500, Actual := OnCycles, Message := 'on for 500 cycles');
+AssertEquals_STRING(Expected := 'TIMEOUT', Actual := LedTimeout.Status.StateText, Message := 'TIMEOUT');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Timeout50ms" Id="{dca0ae52-c1dc-4860-9de5-a576bda1a425}">
+      <Declaration><![CDATA[
+METHOD PRIVATE Timeout50ms
+VAR
+    Cycle : INT;
+    OnCycles : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('Timeout50ms');
+
+LedTimeout50.StatusWord := 16#0001;
+LedTimeout50.Cfg.MaxOnTimeMs := 50.0;
+LedTimeout50.Cmd.On := TRUE;
+FOR Cycle := 1 TO 100 DO
+    LedTimeout50();
+    IF (LedTimeout50.ControlWord AND 16#0002) <> 0 THEN
+        OnCycles := OnCycles + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 50, Actual := OnCycles, Message := 'deactivated after 50 cycles');
+AssertEquals_INT(Expected := 2, Actual := LedTimeout50.Status.State, Message := 'TIMEOUT');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UnlimitedOnTime" Id="{2042d5ec-2ad0-43d2-bf6c-cff437d8fba5}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UnlimitedOnTime
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('UnlimitedOnTime');
+
+LedUnlimited.StatusWord := 16#0001;
+LedUnlimited.Cfg.MaxOnTimeMs := 0.0;
+LedUnlimited.Cmd.On := TRUE;
+FOR Cycle := 1 TO 10000 DO
+    LedUnlimited();
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := LedUnlimited.Status.State, Message := 'still on');
+LedUnlimited.Cmd.Off := TRUE;
+LedUnlimited();
+AssertEquals_INT(Expected := 0, Actual := LedUnlimited.Status.State, Message := 'off');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="VoltageAndCurrentReadback" Id="{4a30c659-d22b-448e-8e26-ca6582256b3e}">
+      <Declaration><![CDATA[
+METHOD PRIVATE VoltageAndCurrentReadback
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('VoltageAndCurrentReadback');
+
+LedReadback.InfoData1 := 1230;
+LedReadback.InfoData2 := 500;
+LedReadback();
+AssertEquals_REAL(Expected := 12.3, Actual := LedReadback.Status.VoltageV, Delta := 1.0E-4, Message := 'VoltageV');
+AssertEquals_REAL(Expected := 500.0, Actual := LedReadback.Status.CurrentMa, Delta := 1.0E-4, Message := 'CurrentMa');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

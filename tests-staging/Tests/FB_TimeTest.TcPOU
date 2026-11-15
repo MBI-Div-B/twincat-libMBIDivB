@@ -1,0 +1,96 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_TimeTest" Id="{c8eb88f0-de58-4189-a207-ce0dd34df857}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of F_MsToCyclesAt, F_CyclesToMsAt and the test task's cycle time.
+*)
+FUNCTION_BLOCK FB_TimeTest EXTENDS TcUnit.FB_TestSuite
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+TaskCycleTimeIs1ms();
+Converts2_4msAt1ms();
+Converts1msAt0_3ms();
+Converts100msAt10ms();
+NonPositiveTimeGivesZero();
+]]></ST>
+    </Implementation>
+    <Method Name="Converts100msAt10ms" Id="{c6828d41-e344-4538-a5bc-9f3b2f4ba7f1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE Converts100msAt10ms
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('Converts100msAt10ms');
+
+AssertEquals_UDINT(Expected := 10, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := 100.0, CycleTime := 100000), Message := 'cycles');
+AssertEquals_REAL(Expected := 100.0, Actual := MBIDivB.F_CyclesToMsAt(Cycles := 10, CycleTime := 100000), Delta := 1.0E-6, Message := 'effective ms');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Converts1msAt0_3ms" Id="{389e096c-3aa2-4165-9015-be39a504b5ce}">
+      <Declaration><![CDATA[
+METHOD PRIVATE Converts1msAt0_3ms
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('Converts1msAt0_3ms');
+
+AssertEquals_UDINT(Expected := 3, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := 1.0, CycleTime := 3000), Message := 'cycles');
+AssertEquals_REAL(Expected := 0.9, Actual := MBIDivB.F_CyclesToMsAt(Cycles := 3, CycleTime := 3000), Delta := 1.0E-6, Message := 'effective ms');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Converts2_4msAt1ms" Id="{1990adae-6dab-498c-8387-8d134508a445}">
+      <Declaration><![CDATA[
+METHOD PRIVATE Converts2_4msAt1ms
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('Converts2_4msAt1ms');
+
+AssertEquals_UDINT(Expected := 2, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := 2.4, CycleTime := 10000), Message := 'cycles');
+AssertEquals_REAL(Expected := 2.0, Actual := MBIDivB.F_CyclesToMsAt(Cycles := 2, CycleTime := 10000), Delta := 1.0E-6, Message := 'effective ms');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NonPositiveTimeGivesZero" Id="{6e2509db-fcbe-4808-8219-d36358e43ec1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NonPositiveTimeGivesZero
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NonPositiveTimeGivesZero');
+
+AssertEquals_UDINT(Expected := 0, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := 0.0, CycleTime := 10000), Message := 'zero');
+AssertEquals_UDINT(Expected := 0, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := -5.0, CycleTime := 10000), Message := 'negative');
+AssertEquals_UDINT(Expected := 0, Actual := MBIDivB.F_MsToCyclesAt(TimeMs := 5.0, CycleTime := 0), Message := 'cycle time 0');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TaskCycleTimeIs1ms" Id="{7d33429b-a64b-475b-9b25-1234297ed3d8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TaskCycleTimeIs1ms
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TaskCycleTimeIs1ms');
+
+AssertEquals_UDINT(Expected := 10000, Actual := MBIDivB.F_GetTaskCycleTime(),
+    Message := 'The test task must run at 1 ms; the other suites assume it');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

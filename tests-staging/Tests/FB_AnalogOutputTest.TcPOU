@@ -1,0 +1,452 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_AnalogOutputTest" Id="{3a835c16-e674-4db3-8adb-44470d678166}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_AnalogOutput (specs/analog-output). Needs AO_WAVEFORM_LENGTH >= 4.
+*)
+FUNCTION_BLOCK FB_AnalogOutputTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    AoBack : MBIDivB.FB_AnalogOutput;
+    AoDuration : MBIDivB.FB_AnalogOutput;
+    AoReversal : MBIDivB.FB_AnalogOutput;
+    AoReached : MBIDivB.FB_AnalogOutput;
+    AoZeroVelocity : MBIDivB.FB_AnalogOutput;
+    AoLimit : MBIDivB.FB_AnalogOutput;
+    AoFull : MBIDivB.FB_AnalogOutput;
+    AoStep : MBIDivB.FB_AnalogOutput;
+    AoEndless : MBIDivB.FB_AnalogOutput;
+    AoRampStart : MBIDivB.FB_AnalogOutput;
+    AoBoot : MBIDivB.FB_AnalogOutput;
+    AoProgress : MBIDivB.FB_AnalogOutput;
+    AoX : MBIDivB.FB_AnalogOutput;
+    AoY : MBIDivB.FB_AnalogOutput;
+    AoRecord : MBIDivB.FB_AnalogOutput;
+    CtRecord : MBIDivB.FB_CounterTimer;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+BackToRampMode();
+RampDuration();
+SetpointChangedMidRamp();
+SetpointReachedFlag();
+ZeroVelocityKeepsPrevious();
+SetpointAboveLimit();
+FullPositiveOutput();
+StepTime4x10Cycles();
+EndlessRepetition();
+StartInRampModeRejected();
+IdleAtStartInWaveformMode();
+WaveformProgress();
+TwoOutputsInLockstep();
+PresentValueRecorded();
+]]></ST>
+    </Implementation>
+    <Method Name="BackToRampMode" Id="{71e5437a-cc84-40fd-9b38-a8f4406c68fb}">
+      <Declaration><![CDATA[
+METHOD PRIVATE BackToRampMode
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('BackToRampMode');
+
+AoBack.Cfg.Mode := 1;
+AoBack.Data[1] := 3.0;
+AoBack.Cfg.WaveformPoints := 1;
+AoBack.Cfg.Repeats := 0;
+AoBack.Cmd.Start := TRUE;
+FOR Cycle := 1 TO 5 DO
+    AoBack();
+END_FOR
+AssertEquals_REAL(Expected := 3.0, Actual := AoBack.Status.Value, Delta := 1.0E-6, Message := 'waveform output');
+AoBack.Cfg.Setpoint := 0.0;
+AoBack.Cfg.VelocityVPerS := 1.0;
+AoBack.Cfg.Mode := 0;
+AoBack();
+AssertEquals_INT(Expected := 0, Actual := AoBack.Status.State, Message := 'ramp state, waveform stopped');
+AssertEquals_REAL(Expected := 2.999, Actual := AoBack.Status.Value, Delta := 1.0E-5, Message := 'ramps from 3.0 V');
+FOR Cycle := 1 TO 3000 DO
+    AoBack();
+END_FOR
+AssertEquals_REAL(Expected := 0.0, Actual := AoBack.Status.Value, Delta := 0.0, Message := 'at setpoint');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EndlessRepetition" Id="{c54f6cec-d3c0-4b40-9ad0-03c50c2d1644}">
+      <Declaration><![CDATA[
+METHOD PRIVATE EndlessRepetition
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('EndlessRepetition');
+
+AoEndless.Cfg.Mode := 1;
+AoEndless.Data[1] := 1.0;
+AoEndless.Data[2] := -1.0;
+AoEndless.Cfg.WaveformPoints := 2;
+AoEndless.Cfg.Repeats := 0;
+AoEndless.Cmd.Start := TRUE;
+FOR Cycle := 1 TO 1000 DO
+    AoEndless();
+END_FOR
+AssertEquals_INT(Expected := 2, Actual := AoEndless.Status.State, Message := 'still playing');
+AssertEquals_DINT(Expected := 500, Actual := AoEndless.Status.RepeatsDone, Message := 'RepeatsDone');
+AoEndless.Cmd.Stop := TRUE;
+AoEndless();
+AssertEquals_INT(Expected := 1, Actual := AoEndless.Status.State, Message := 'stopped');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="FullPositiveOutput" Id="{b006e07a-49ef-4448-bb4d-80b9a07d0899}">
+      <Declaration><![CDATA[
+METHOD PRIVATE FullPositiveOutput
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('FullPositiveOutput');
+
+AoFull.Cfg.VelocityVPerS := 1000.0;
+AoFull.Cfg.Setpoint := 10.0;
+FOR Cycle := 1 TO 20 DO
+    AoFull();
+END_FOR
+AssertEquals_INT(Expected := 32767, Actual := AoFull.Raw, Message := 'Raw output');
+AssertEquals_INT(Expected := 32767, Actual := AoFull.Status.Raw, Message := 'Status.Raw');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="IdleAtStartInWaveformMode" Id="{49f8e6f5-e15f-4eb9-9dd4-526b7cf97ea9}">
+      <Declaration><![CDATA[
+METHOD PRIVATE IdleAtStartInWaveformMode
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('IdleAtStartInWaveformMode');
+
+AoBoot.Cfg.Mode := 1;
+AoBoot.Data[1] := 7.0;
+FOR Cycle := 1 TO 10 DO
+    AoBoot();
+END_FOR
+AssertEquals_INT(Expected := 1, Actual := AoBoot.Status.State, Message := 'WAVEFORM_IDLE');
+AssertEquals_REAL(Expected := 0.0, Actual := AoBoot.Status.Value, Delta := 0.0, Message := 'holds the initial value');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="PresentValueRecorded" Id="{5ba8bb43-89bd-475d-9e0f-5f18f2788d9c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE PresentValueRecorded
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('PresentValueRecorded');
+
+AoRecord.Cfg.VelocityVPerS := 1000.0;
+AoRecord.Cfg.Setpoint := 1.25;
+FOR Cycle := 1 TO 5 DO
+    AoRecord();
+END_FOR
+CtRecord.Cfg.IntegrationTimeMs := 1.0;
+CtRecord.Cfg.Points := 1;
+CtRecord.Start();
+FOR Cycle := 1 TO 2 DO
+    AoRecord();
+    CtRecord.Channel[1].Input := AoRecord.Status.Value;
+    CtRecord();
+END_FOR
+AssertEquals_REAL(Expected := 1.25, Actual := CtRecord.Channel[1].Data[1], Delta := 0.0, Message := 'acquires the output value');
+AssertEquals_INT(Expected := 4096, Actual := AoRecord.Status.Raw, Message := 'Raw = 1.25 V x 32767 / 10 V');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RampDuration" Id="{073ee52b-0bb8-4e0e-b1fa-8173d76716de}">
+      <Declaration><![CDATA[
+METHOD PRIVATE RampDuration
+VAR
+    Cycle : INT;
+    MaxValue : REAL;
+    ReachedAt : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('RampDuration');
+
+AoDuration.Cfg.VelocityVPerS := 2.0;
+AoDuration.Cfg.Setpoint := 1.0;
+ReachedAt := -1;
+FOR Cycle := 1 TO 600 DO
+    AoDuration();
+    MaxValue := MAX(MaxValue, AoDuration.Status.Value);
+    IF ReachedAt < 0 AND AoDuration.Status.Value = 1.0 THEN
+        ReachedAt := Cycle;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 500, Actual := ReachedAt, Message := 'reached after 0.5 s');
+AssertEquals_REAL(Expected := 1.0, Actual := MaxValue, Delta := 0.0, Message := 'no overshoot');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetpointAboveLimit" Id="{fa10d5f7-5504-43be-b5bb-edebd3ee8b5e}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SetpointAboveLimit
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SetpointAboveLimit');
+
+AoLimit.Cfg.LimitMax := 5.0;
+AoLimit.Cfg.VelocityVPerS := 100.0;
+AoLimit.Cfg.Setpoint := 8.0;
+FOR Cycle := 1 TO 100 DO
+    AoLimit();
+END_FOR
+AssertEquals_REAL(Expected := 5.0, Actual := AoLimit.Status.Value, Delta := 0.0, Message := 'output at the limit');
+AssertEquals_REAL(Expected := 8.0, Actual := AoLimit.Cfg.Setpoint, Delta := 0.0, Message := 'Cfg.Setpoint keeps the written value');
+AssertTrue(Condition := AoLimit.Status.Limited, Message := 'Limited');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetpointChangedMidRamp" Id="{cb8e1516-eb3b-456b-9488-c95aea2689b4}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SetpointChangedMidRamp
+VAR
+    Cycle : INT;
+    Previous : REAL;
+    MaxStep : REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SetpointChangedMidRamp');
+
+AoReversal.Cfg.VelocityVPerS := 1.0;
+AoReversal.Cfg.Setpoint := 2.0;
+FOR Cycle := 1 TO 1500 DO
+    AoReversal();
+END_FOR
+AssertEquals_REAL(Expected := 1.5, Actual := AoReversal.Status.Value, Delta := 1.0E-4, Message := 'ramping at 1.5 V');
+Previous := AoReversal.Status.Value;
+AoReversal.Cfg.Setpoint := 0.0;
+FOR Cycle := 1 TO 2000 DO
+    AoReversal();
+    MaxStep := MAX(MaxStep, ABS(AoReversal.Status.Value - Previous));
+    Previous := AoReversal.Status.Value;
+END_FOR
+AssertTrue(Condition := MaxStep <= 0.00101, Message := 'no step larger than velocity x cycle time');
+AssertEquals_REAL(Expected := 0.0, Actual := AoReversal.Status.Value, Delta := 0.0, Message := 'reaches 0 V');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetpointReachedFlag" Id="{f7215725-3c4d-42f7-9751-05cc3a48a3fc}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SetpointReachedFlag
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SetpointReachedFlag');
+
+AoReached.Cfg.VelocityVPerS := 1.0;
+AoReached.Cfg.Setpoint := 0.01;
+AoReached();
+AssertFalse(Condition := AoReached.Status.SetpointReached, Message := 'FALSE while ramping');
+FOR Cycle := 1 TO 20 DO
+    AoReached();
+END_FOR
+AssertTrue(Condition := AoReached.Status.SetpointReached, Message := 'TRUE at the setpoint');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartInRampModeRejected" Id="{3c5d725b-e693-453a-971e-5d878c323aa2}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StartInRampModeRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StartInRampModeRejected');
+
+AoRampStart.Cmd.Start := TRUE;
+AoRampStart();
+AssertFalse(Condition := AoRampStart.Cmd.Start, Message := 'flag cleared');
+AssertTrue(Condition := AoRampStart.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(AoRampStart.Status.ErrorText, 'Mode') > 0, Message := 'names the mode');
+AssertEquals_INT(Expected := 0, Actual := AoRampStart.Status.State, Message := 'state unchanged');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StepTime4x10Cycles" Id="{083ed08c-8b71-4668-9725-2484528ab26b}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StepTime4x10Cycles
+VAR
+    Cycle : INT;
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StepTime4x10Cycles');
+
+AoStep.Cfg.Mode := 1;
+AoStep.Data[1] := 1.0;
+AoStep.Data[2] := 2.0;
+AoStep.Data[3] := 3.0;
+AoStep.Data[4] := 4.0;
+AoStep.Cfg.WaveformPoints := 4;
+AoStep.Cfg.StepTimeMs := 10.0;
+AoStep.Cfg.Repeats := 1;
+AoStep.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 39 DO
+    AoStep();
+    IF AoStep.Status.Value <> INT_TO_REAL(Cycle / 10 + 1) THEN
+        Wrong := Wrong + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'each element for 10 cycles');
+AssertEquals_INT(Expected := 1, Actual := AoStep.Status.State, Message := 'idle after 40 cycles');
+FOR Cycle := 1 TO 10 DO
+    AoStep();
+END_FOR
+AssertEquals_REAL(Expected := 4.0, Actual := AoStep.Status.Value, Delta := 0.0, Message := 'holds element 4');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="TwoOutputsInLockstep" Id="{8482e7f0-7aad-45a1-a021-d0b5d31867e5}">
+      <Declaration><![CDATA[
+METHOD PRIVATE TwoOutputsInLockstep
+VAR
+    Cycle : INT;
+    Point : INT;
+    Mismatch : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('TwoOutputsInLockstep');
+
+AoX.Cfg.Mode := 1;
+AoY.Cfg.Mode := 1;
+FOR Point := 1 TO 4 DO
+    AoX.Data[Point] := INT_TO_REAL(Point);
+    AoY.Data[Point] := INT_TO_REAL(-Point);
+END_FOR
+AoX.Cfg.WaveformPoints := 4;
+AoY.Cfg.WaveformPoints := 4;
+AoX.Cfg.StepTimeMs := 3.0;
+AoY.Cfg.StepTimeMs := 3.0;
+AoX();
+AoY();
+AoX.Start();
+AoY.Start();
+FOR Cycle := 1 TO 12 DO
+    AoX();
+    AoY();
+    IF AoX.Status.Index <> AoY.Status.Index OR AoX.Status.Value <> -AoY.Status.Value THEN
+        Mismatch := Mismatch + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Mismatch, Message := 'element k in the same cycle');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WaveformProgress" Id="{5b7493d2-8d5b-4c82-9c3c-554b7d80b735}">
+      <Declaration><![CDATA[
+METHOD PRIVATE WaveformProgress
+VAR
+    Cycle : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('WaveformProgress');
+
+AoProgress.Cfg.Mode := 1;
+AoProgress.Cfg.WaveformPoints := 4;
+AoProgress.Cfg.StepTimeMs := 1.0;
+AoProgress.Cfg.Repeats := 3;
+AoProgress.Cmd.Start := TRUE;
+FOR Cycle := 0 TO 6 DO   // pass 1 in cycles 0-3, pass 2 element 3 in cycle 6
+    AoProgress();
+END_FOR
+AssertEquals_DINT(Expected := 3, Actual := AoProgress.Status.Index, Message := 'Index');
+AssertEquals_DINT(Expected := 1, Actual := AoProgress.Status.RepeatsDone, Message := 'RepeatsDone');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ZeroVelocityKeepsPrevious" Id="{4c4a6ee9-2777-48ff-b740-fd28b5f0df83}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ZeroVelocityKeepsPrevious
+VAR
+    Cycle : INT;
+    Before : REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ZeroVelocityKeepsPrevious');
+
+AoZeroVelocity.Cfg.VelocityVPerS := 1.0;
+AoZeroVelocity.Cfg.Setpoint := 5.0;
+FOR Cycle := 1 TO 100 DO
+    AoZeroVelocity();
+END_FOR
+Before := AoZeroVelocity.Status.Value;
+AoZeroVelocity.Cfg.VelocityVPerS := 0.0;
+AoZeroVelocity();
+AssertTrue(Condition := AoZeroVelocity.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(AoZeroVelocity.Status.ErrorText, 'VelocityVPerS') > 0, Message := 'names the velocity');
+AssertEquals_REAL(Expected := Before + 0.001, Actual := AoZeroVelocity.Status.Value, Delta := 1.0E-5, Message := 'continues at the previous velocity');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>
