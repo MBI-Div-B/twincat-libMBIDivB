@@ -1,7 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
   <POU Name="MultiCounterTimer" Id="{5fec00ef-dcbc-4fd7-a0ec-c0254bec1994}" SpecialFunc="None">
-    <Declaration><![CDATA[(*
+    <Declaration><![CDATA[
+(*
 :Description: Container class for scalar value buffers. Each buffer stores values from the calling loop
 Start/ Stop/ Integration etc. are synchronized between all buffers.
 
@@ -9,71 +10,62 @@ TODO: Don't use static length
 *)
 FUNCTION_BLOCK MultiCounterTimer
 VAR CONSTANT
-	numBuffers: UINT := 8;
+    numBuffers: UINT := 8;
 END_VAR
 
 VAR
-	Buffers: ARRAY [0..numBuffers - 1] OF CounterTimer;
-	Start: BOOL := FALSE;
-	Stop: BOOL := FALSE;
-	Prepare: BOOL := FALSE;
-	IntegrationTimeMS: UDINT := 100;
-	LatencyTimeMS: UDINT := 100;
-	NumMeasurements: UDINT := 1;
-	i: UINT;
+    Buffers: ARRAY [0..numBuffers - 1] OF CounterTimer;
+    Start: BOOL := FALSE;
+    Stop: BOOL := FALSE;
+    Prepare: BOOL := FALSE;
+    IntegrationTimeMS: UDINT := 100;
+    LatencyTimeMS: UDINT := 100;
+    NumMeasurements: UDINT := 1;
+    i: UINT;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[
 IF Prepare THEN
-	FOR i := 0 TO numBuffers - 1 DO
-		Buffers[i].PrepareMeasurement(
-			nAccumMilliseconds:=IntegrationTimeMS,
-			nDelayMilliseconds:=LatencyTimeMS,
-			nMeasurements:=NumMeasurements); 
-	END_FOR
-	Prepare := FALSE;
+    FOR i := 0 TO numBuffers - 1 DO
+        Buffers[i].PrepareMeasurement(
+            nAccumMilliseconds:=IntegrationTimeMS,
+            nDelayMilliseconds:=LatencyTimeMS,
+            nMeasurements:=NumMeasurements);
+    END_FOR
+    Prepare := FALSE;
 END_IF
 
 IF Start THEN
-	FOR i := 0 TO numBuffers - 1 DO
-		Buffers[i].StartBuffer(); 
-	END_FOR
-	Start := FALSE;
+    FOR i := 0 TO numBuffers - 1 DO
+        Buffers[i].StartBuffer();
+    END_FOR
+    Start := FALSE;
 END_IF
 
 IF Stop THEN
-	FOR i := 0 TO numBuffers - 1 DO
-		Buffers[i].StopBuffer(); 
-	END_FOR
-	Stop := FALSE;
+    FOR i := 0 TO numBuffers - 1 DO
+        Buffers[i].StopBuffer();
+    END_FOR
+    Stop := FALSE;
 END_IF
-
 ]]></ST>
     </Implementation>
     <Method Name="storeValue" Id="{0cc6d464-33e5-4361-8879-5127cd8b801d}">
-      <Declaration><![CDATA[METHOD storeValue
+      <Declaration><![CDATA[
+METHOD storeValue
 VAR_INPUT
-	index: UINT;
-	value: REAL;
+    index: UINT;
+    value: REAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF index >= 0 AND index < numBuffers THEN
-	Buffers[index](fValue:=value);
+        <ST><![CDATA[
+IF index >= 0 AND index < numBuffers THEN
+    Buffers[index](fValue:=value);
 END_IF
- 
 ]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="MultiCounterTimer">
-      <LineId Id="224" Count="24" />
-      <LineId Id="52" Count="0" />
-    </LineIds>
-    <LineIds Name="MultiCounterTimer.storeValue">
-      <LineId Id="10" Count="2" />
-      <LineId Id="7" Count="0" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

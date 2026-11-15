@@ -1,7 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
   <POU Name="AnalogOutput" Id="{36cba5ce-0960-4b19-8ca3-8cafc9779ff4}" SpecialFunc="None">
-    <Declaration><![CDATA[(*
+    <Declaration><![CDATA[
+(*
 :Description: Control analog output with a linear ramp.
 :Usage: Just call in MAIN loop. Internal parameters are intended to be set by ADS.
 :Relevant ADS Symbols:
@@ -16,18 +17,18 @@
 
 FUNCTION_BLOCK AnalogOutput
 VAR
-	RawOutput AT %Q*: INT;
-	RawScale: REAL := 32767.0 / 10.0;
-	Setpoint: REAL := 0;
-	LimitMin: REAL := -10;
-	LimitMax: REAL := 10;
-	Mode: WORD;
-	Ramp: RampCtrl;
-	WaveformBuffer: OutputBuffer;
-	valuebuffer: CounterTimer;
+    RawOutput AT %Q*: INT;
+    RawScale: REAL := 32767.0 / 10.0;
+    Setpoint: REAL := 0;
+    LimitMin: REAL := -10;
+    LimitMax: REAL := 10;
+    Mode: WORD;
+    Ramp: RampCtrl;
+    WaveformBuffer: OutputBuffer;
+    valuebuffer: CounterTimer;
 END_VAR
 VAR_OUTPUT
-	CurrentValue: REAL;
+    CurrentValue: REAL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -38,75 +39,57 @@ Ramp(Target:=Setpoint);
 WaveformBuffer();
 
 IF Mode = 0 THEN
-	CurrentValue := Ramp.MomentarySetpoint;
+    CurrentValue := Ramp.MomentarySetpoint;
 ELSIF Mode = 1 THEN
-	CurrentValue := WaveformBuffer.Value;
+    CurrentValue := WaveformBuffer.Value;
 END_IF
 
 RawOutput := REAL_TO_INT(RawScale * CurrentValue);
-valuebuffer(fValue:=CurrentValue); ]]></ST>
+valuebuffer(fValue:=CurrentValue);
+]]></ST>
     </Implementation>
     <Method Name="setMode" Id="{a773ca74-10e9-454a-8c78-2472a2e47714}">
-      <Declaration><![CDATA[METHOD setMode
+      <Declaration><![CDATA[
+METHOD setMode
 VAR_INPUT
-	targetMode: WORD;
+    targetMode: WORD;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[Mode := targetMode;
+        <ST><![CDATA[
+Mode := targetMode;
 
 IF MODE = 1 THEN
-	WaveformBuffer.setState(2);
-END_IF]]></ST>
+    WaveformBuffer.setState(2);
+END_IF
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="setWaveformIndex" Id="{55355766-662b-4c39-8c77-af10da09e400}">
-      <Declaration><![CDATA[METHOD setWaveformIndex
+      <Declaration><![CDATA[
+METHOD setWaveformIndex
 VAR_INPUT
-	Index: UDINT;
+    Index: UDINT;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[WaveformBuffer.setCurrentIndex(Index:=Index);]]></ST>
+        <ST><![CDATA[
+WaveformBuffer.setCurrentIndex(Index:=Index);
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="setWaveformIndexMax" Id="{61b91bd7-b54c-44a2-a09c-ccd66aa12732}">
-      <Declaration><![CDATA[METHOD setWaveformIndexMax
+      <Declaration><![CDATA[
+METHOD setWaveformIndexMax
 VAR_INPUT
-	Value: UDINT;
+    Value: UDINT;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[WaveformBuffer.setIndexMax(Value:=Value);]]></ST>
+        <ST><![CDATA[
+WaveformBuffer.setIndexMax(Value:=Value);
+]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="AnalogOutput">
-      <LineId Id="235" Count="0" />
-      <LineId Id="167" Count="0" />
-      <LineId Id="229" Count="0" />
-      <LineId Id="168" Count="0" />
-      <LineId Id="202" Count="0" />
-      <LineId Id="230" Count="0" />
-      <LineId Id="196" Count="0" />
-      <LineId Id="245" Count="0" />
-      <LineId Id="200" Count="0" />
-      <LineId Id="247" Count="0" />
-      <LineId Id="199" Count="0" />
-      <LineId Id="246" Count="0" />
-      <LineId Id="195" Count="0" />
-      <LineId Id="9" Count="0" />
-    </LineIds>
-    <LineIds Name="AnalogOutput.setMode">
-      <LineId Id="5" Count="0" />
-      <LineId Id="8" Count="0" />
-      <LineId Id="7" Count="0" />
-      <LineId Id="9" Count="1" />
-    </LineIds>
-    <LineIds Name="AnalogOutput.setWaveformIndex">
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="AnalogOutput.setWaveformIndexMax">
-      <LineId Id="5" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>

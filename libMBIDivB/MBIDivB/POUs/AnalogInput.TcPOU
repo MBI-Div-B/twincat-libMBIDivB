@@ -1,24 +1,25 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.15">
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
   <POU Name="AnalogInput" Id="{ddb1358c-03c7-4f43-beb0-30b2435a5b4d}" SpecialFunc="None">
-    <Declaration><![CDATA[FUNCTION_BLOCK AnalogInput
+    <Declaration><![CDATA[
+FUNCTION_BLOCK AnalogInput
 VAR
-	nMaxRawValue: DINT := 7812500;  // for 24 bit device, e.g. ELM300x - check manual
-	nRawValue AT %I*: DINT; // signed 32 bit integer representing full value range
-	fMaxVoltage: REAL := 10; // measurement range
-	valuebuffer: CounterTimer; // buffer for timed measurements
-	filterbuffer: FilterRingBuffer;
-	nFilterSize: UDINT := 100;
-	fVoltage: REAL;
-	fVoltageFiltered: REAL; // running average filter
+    nMaxRawValue: DINT := 7812500;  // for 24 bit device, e.g. ELM300x - check manual
+    nRawValue AT %I*: DINT; // signed 32 bit integer representing full value range
+    fMaxVoltage: REAL := 10; // measurement range
+    valuebuffer: CounterTimer; // buffer for timed measurements
+    filterbuffer: FilterRingBuffer;
+    nFilterSize: UDINT := 100;
+    fVoltage: REAL;
+    fVoltageFiltered: REAL; // running average filter
 END_VAR
-
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[fVoltage := fMaxVoltage * DINT_TO_REAL(nRawValue) / DINT_TO_REAL(nMaxRawValue);  
+      <ST><![CDATA[
+fVoltage := fMaxVoltage * DINT_TO_REAL(nRawValue) / DINT_TO_REAL(nMaxRawValue);
 
 IF filterbuffer.nBufferSize <> nFilterSize THEN
-	nFilterSize := filterbuffer.SetFilterSize(nFilterSize);
+    nFilterSize := filterbuffer.SetFilterSize(nFilterSize);
 END_IF
 filterbuffer.Store(fVoltage);
 fVoltageFiltered := filterbuffer.CalculateMean();
@@ -27,30 +28,19 @@ valuebuffer(fValue:=fVoltage);  // makes sure buffer in initialized and calls St
 ]]></ST>
     </Implementation>
     <Method Name="setScale" Id="{f0be820f-2769-4945-9a37-818115be3917}">
-      <Declaration><![CDATA[METHOD setScale
+      <Declaration><![CDATA[
+METHOD setScale
 VAR_INPUT
-	maxInteger: DINT;
-	maxValue: REAL;
+    maxInteger: DINT;
+    maxValue: REAL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[nMaxRawValue := maxInteger;
-fMaxVoltage := maxValue;]]></ST>
+        <ST><![CDATA[
+nMaxRawValue := maxInteger;
+fMaxVoltage := maxValue;
+]]></ST>
       </Implementation>
     </Method>
-    <LineIds Name="AnalogInput">
-      <LineId Id="3" Count="0" />
-      <LineId Id="39" Count="0" />
-      <LineId Id="36" Count="0" />
-      <LineId Id="40" Count="1" />
-      <LineId Id="35" Count="0" />
-      <LineId Id="37" Count="0" />
-      <LineId Id="22" Count="0" />
-      <LineId Id="5" Count="0" />
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="AnalogInput.setScale">
-      <LineId Id="5" Count="1" />
-    </LineIds>
   </POU>
 </TcPlcObject>
