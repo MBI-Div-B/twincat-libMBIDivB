@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="F_MsToCycles" Id="{02d29c79-7e24-41fc-9cb8-f0d007aca967}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Converts a time in ms to a whole number of cycles of the calling task,
+    rounded to the nearest cycle. See F_MsToCyclesAt for details.
+*)
+FUNCTION F_MsToCycles : UDINT
+VAR_INPUT
+    TimeMs : LREAL;  // time in ms
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+F_MsToCycles := F_MsToCyclesAt(TimeMs := TimeMs, CycleTime := F_GetTaskCycleTime());
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

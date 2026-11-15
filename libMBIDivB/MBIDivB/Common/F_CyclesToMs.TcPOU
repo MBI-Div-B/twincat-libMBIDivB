@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="F_CyclesToMs" Id="{440e96ae-229a-4d7f-bbb3-6b48a92e7622}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Converts a number of cycles of the calling task to ms. Inverse of
+    F_MsToCycles.
+*)
+FUNCTION F_CyclesToMs : REAL
+VAR_INPUT
+    Cycles : UDINT;  // number of task cycles
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+F_CyclesToMs := F_CyclesToMsAt(Cycles := Cycles, CycleTime := F_GetTaskCycleTime());
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

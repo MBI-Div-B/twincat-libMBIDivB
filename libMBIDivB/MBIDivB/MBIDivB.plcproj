@@ -1,61 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
-    <Compile Include="DUTs\CounterState.TcDUT">
+    <Compile Include="Common\F_CyclesToMs.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DUTs\TriggerState.TcDUT">
+    <Compile Include="Common\F_CyclesToMsAt.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="GVLs\globals.TcGVL">
+    <Compile Include="Common\F_GetTaskCycleTime.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Common\F_MsToCycles.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Common\F_MsToCyclesAt.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Common\ST_StatusBase.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="GVLs\GVL_LibInfo.TcGVL">
       <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\AnalogInput.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\AnalogOutput.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\CounterTimer.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\FilterRingBuffer.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\MultiADC.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\MultiCounterTimer.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\MultiTrigger.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\OutputBuffer.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\RampCtrl.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\ReedFlowMeter.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="POUs\getTaskCycleTime.TcPOU">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="PlcTask.TcTTO">
+    <Compile Include="GVLs\GVL_Param.TcGVL">
+      <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Version\Global_Version.TcGVL">
+      <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="DUTs"/>
+    <Folder Include="Common"/>
     <Folder Include="GVLs"/>
-    <Folder Include="POUs"/>
-    <Folder Include="VISUs"/>
     <Folder Include="Version"/>
   </ItemGroup>
   <ItemGroup>
@@ -109,8 +88,8 @@
   <PropertyGroup>
     <Application>{c1129484-9b40-4b6c-b171-4f0ad1261262}</Application>
     <Author>Michael Schneider</Author>
-    <Company>MBI DIv-B</Company>
-    <Description>Collection of function blocks used for data acquisition and experiment control.</Description>
+    <Company>MBI Div-B</Company>
+    <Description>Function blocks for data acquisition and experiment control (analog I/O, counter/timer, triggers, shutter, LED, flow meter).</Description>
     <DownloadApplicationInfo>true</DownloadApplicationInfo>
     <FileVersion>1.0.0.0</FileVersion>
     <GenerateTpy>false</GenerateTpy>
@@ -121,11 +100,11 @@
     <Name>MBIDivB</Name>
     <ProgramVersion>3.1.4024.0</ProgramVersion>
     <ProjectGuid>{75b04f5e-4f8a-462d-a2be-0703eebb57c9}</ProjectGuid>
-    <ProjectVersion>0.1.0.0</ProjectVersion>
+    <ProjectVersion>1.0.0.0</ProjectVersion>
     <Released>false</Released>
     <SchemaVersion>2.0</SchemaVersion>
     <SubObjectsSortedByName>True</SubObjectsSortedByName>
-    <Title>Experiment Control Library</Title>
+    <Title>MBIDivB</Title>
     <TypeSystem>{eefbf04a-337e-42c6-aa4d-21a8c1f6547d}</TypeSystem>
     <WriteProductVersion>false</WriteProductVersion>
   </PropertyGroup>

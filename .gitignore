@@ -50,3 +50,6 @@ LineIDs.dbg.bak
 *.~u
 *.project.~u
 *.suo
+
+# Generated from GVL_LibInfo.TcGVL.template by tc_git_info
+libMBIDivB/MBIDivB/GVLs/GVL_LibInfo.TcGVL

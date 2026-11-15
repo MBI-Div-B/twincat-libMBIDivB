@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="F_GetTaskCycleTime" Id="{96d28946-0682-44a8-bec8-ef7d2feac92f}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Returns the cycle time of the task that calls this function, in units of
+    100 ns (10000 = 1 ms).
+*)
+FUNCTION F_GetTaskCycleTime : UDINT
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+F_GetTaskCycleTime := TwinCAT_SystemInfoVarList._TaskInfo[GETCURTASKINDEXEX()].CycleTime;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

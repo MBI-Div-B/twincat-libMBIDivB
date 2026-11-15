@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="F_MsToCyclesAt" Id="{86eae503-df1e-447d-a892-2674847adfa5}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Converts a time in ms to a whole number of task cycles for a given cycle
+    time, rounded to the nearest cycle. Computed in LREAL, so cycle times
+    that do not divide 1 ms work as well (1.0 ms at 0.3 ms gives 3 cycles).
+
+    Returns 0 for times <= 0 or a cycle time of 0, and saturates at the
+    largest UDINT. Callers that need at least one cycle apply MAX(1, ...).
+
+    This is the pure arithmetic behind F_MsToCycles; use F_MsToCycles in
+    blocks, which takes the cycle time of the calling task.
+*)
+FUNCTION F_MsToCyclesAt : UDINT
+VAR_INPUT
+    TimeMs : LREAL;     // time in ms
+    CycleTime : UDINT;  // task cycle time in 100 ns units (10000 = 1 ms)
+END_VAR
+VAR
+    Cycles : LREAL;
+END_VAR
+VAR CONSTANT
+    MAX_CYCLES : LREAL := 4294967295.0;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF CycleTime = 0 OR TimeMs <= 0.0 THEN
+    F_MsToCyclesAt := 0;
+    RETURN;
+END_IF
+
+Cycles := TimeMs * 10000.0 / UDINT_TO_LREAL(CycleTime);
+IF Cycles >= MAX_CYCLES THEN
+    F_MsToCyclesAt := 4294967295;
+ELSE
+    // LREAL_TO_UDINT rounds to the nearest integer.
+    F_MsToCyclesAt := LREAL_TO_UDINT(Cycles);
+END_IF
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
