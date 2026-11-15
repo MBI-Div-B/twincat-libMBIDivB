@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_ShutterCfg" Id="{ffbf14b7-14a9-455b-b1ce-1fe78d4b5a6e}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_ShutterControl. Both members are live and are not
+    retained: after a PLC start the mode is SW and the software signal FALSE.
+*)
+TYPE ST_ShutterCfg :
+STRUCT
+    Mode : INT := 3;            // live; 0 = AND, 1 = OR, 2 = HW, 3 = SW
+    SoftwareSignal : BOOL;      // live; software signal, FALSE after a PLC start
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

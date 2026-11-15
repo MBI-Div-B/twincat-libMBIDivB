@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_AoStatus" Id="{b87b5d9d-d378-4e30-a030-18f643c784d9}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_AnalogOutput. State codes: see E_AoState.
+*)
+TYPE ST_AoStatus EXTENDS ST_StatusBase :
+STRUCT
+    Value : REAL;               // V, present output value
+    Raw : INT;                  // raw value sent to the terminal
+    SetpointReached : BOOL;     // ramp mode: Value equals the limited setpoint
+    Limited : BOOL;             // the setpoint or waveform value is clamped to the limits
+    Mode : INT;                 // mode in use (last valid Cfg.Mode)
+    VelocityVPerS : REAL;       // V/s, velocity in use (last valid)
+    LimitMin : REAL;            // V, limits in use (last valid)
+    LimitMax : REAL;            // V
+    Index : DINT;               // waveform: index of the element being output
+    RepeatsDone : DINT;         // waveform: completed passes since the last start
+    WaveformPoints : DINT;      // waveform: points of the last accepted start
+    Repeats : DINT;             // waveform: repeats of the last accepted start
+    StepTimeMs : REAL;          // waveform: ms, effective step time (whole cycles)
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

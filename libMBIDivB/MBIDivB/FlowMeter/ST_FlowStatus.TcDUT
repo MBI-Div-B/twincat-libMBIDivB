@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_FlowStatus" Id="{f90f3807-d193-4984-91f4-1f1741633eec}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_FlowMeter.
+*)
+TYPE ST_FlowStatus EXTENDS ST_StatusBase :
+STRUCT
+    FrequencyHz : REAL;  // Hz, rising edges of the sensor input during the last second
+    FlowRate : REAL;     // Cfg.Factor x FrequencyHz
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

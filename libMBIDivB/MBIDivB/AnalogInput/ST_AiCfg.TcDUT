@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_AiCfg" Id="{f34c9ac5-780c-4c70-a73f-22a50f864b6c}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_AnalogInput16/32. See the block headers.
+*)
+TYPE ST_AiCfg :
+STRUCT
+    // Live. Number of values averaged into Status.ValueFiltered, limited to
+    // 1..GVL_Param.AI_FILTER_MAX_LENGTH. A change restarts the average.
+    FilterSize : DINT := 1;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

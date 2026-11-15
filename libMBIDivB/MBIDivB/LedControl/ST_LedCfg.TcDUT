@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_LedCfg" Id="{a7b6d9fd-1768-40e2-b324-4057e10f78d4}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_LedControl.
+*)
+TYPE ST_LedCfg :
+STRUCT
+    MaxOnTimeMs : REAL := 0.0;  // at Cmd.On; ms, >= 0; 0 = unlimited
+    CurrentMa : INT := 300;     // live; mA, 300..700
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

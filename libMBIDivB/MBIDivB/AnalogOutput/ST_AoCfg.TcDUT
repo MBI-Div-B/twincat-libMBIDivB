@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_AoCfg" Id="{539b5ef1-d3f3-4f3f-ab20-f5b4a3ebd8b0}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_AnalogOutput. Live members take effect in the next
+    block call; the waveform members are applied at an accepted start.
+*)
+TYPE ST_AoCfg :
+STRUCT
+    Mode : INT := 0;                // live; 0 = ramp, 1 = waveform
+    Setpoint : REAL := 0.0;         // live; V, ramp target (clamped to the limits)
+    VelocityVPerS : REAL := 1.0;    // live; V/s, > 0, ramp velocity
+    LimitMin : REAL := -10.0;       // live; V, lowest output value, <= LimitMax
+    LimitMax : REAL := 10.0;        // live; V, highest output value
+    WaveformPoints : DINT := 1;     // at start; number of Data elements to play, 1..GVL_Param.AO_WAVEFORM_LENGTH
+    StepTimeMs : REAL := 1.0;       // at start; ms per element, > 0, rounded to whole cycles (at least 1)
+    Repeats : DINT := 1;            // at start; number of passes, 0 = endless
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

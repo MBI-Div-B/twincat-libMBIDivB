@@ -1,0 +1,140 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_FlowMeter" Id="{77630ea7-d213-41d2-8b49-42ccecdb806e}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_FlowMeter - flow rate from a reed-switch pulse sensor
+
+    Made for cooling water flow sensors whose pulse frequency is proportional
+    to the flow rate, such as the Koolance INS-FM19. Counts the rising edges
+    of the sensor input during the last second and multiplies them by
+    Cfg.Factor.
+
+    Time is measured by counting the block's own calls (one call per task
+    cycle), so changes of the system clock do not affect the result. Call
+    the block exactly once per cycle.
+
+    Range: correct up to GVL_Param.FLOW_BUFFER_LENGTH edges per second, and
+    at most one edge per two task cycles (500 Hz on a 1 ms task). If more
+    edges arrive within one second than the buffer holds, Status.Error is
+    TRUE for one second.
+
+    I/O (link in the I/O configuration):
+        SensorInput  AT %I*  BOOL  digital input channel of the sensor
+
+    Use from ST, every cycle:
+        Flow1();
+
+    Cfg (written by the client):
+        Factor        REAL        live; FlowRate per Hz; default 0.28
+
+    Status (read only):
+        State         INT         always 0
+        StateText     STRING(20)  always 'ACTIVE'
+        Error         BOOL        TRUE while the frequency is out of range
+        ErrorText     STRING(80)  'Frequency out of range: more than N edges per second'
+        FrequencyHz   REAL        Hz, rising edges during the last second
+        FlowRate      REAL        Factor x FrequencyHz
+
+    Memory: GVL_Param.FLOW_BUFFER_LENGTH x 4 B, 4 KiB with the default.
+*)
+FUNCTION_BLOCK FB_FlowMeter
+VAR_INPUT
+    Cfg : ST_FlowCfg;
+    SensorInput AT %I* : BOOL;
+END_VAR
+VAR_OUTPUT
+    Status : ST_FlowStatus;
+END_VAR
+VAR
+    InputEdge : R_TRIG;
+    // Number of block calls; the time base. Wraps around, which the
+    // unsigned differences below handle.
+    CallCount : UDINT;
+    // Ring buffer of the call counts of the edges within the last second.
+    EdgeTimes : ARRAY[1..GVL_Param.FLOW_BUFFER_LENGTH] OF UDINT;
+    Oldest : UDINT := 1;
+    Stored : UDINT;
+    // Out of range: call count of the last overrun.
+    Overrun : BOOL;
+    OverrunTime : UDINT;
+    // One second in calls.
+    Window : UDINT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+CallCount := CallCount + 1;
+Window := MAX(UDINT#1, F_MsToCycles(TimeMs := 1000.0));
+
+// Forget edges that are one second old.
+WHILE Stored > 0 AND_THEN Age(EdgeTimes[Oldest]) >= Window DO
+    Oldest := NextIndex(Oldest);
+    Stored := Stored - 1;
+END_WHILE
+
+InputEdge(CLK := SensorInput);
+IF InputEdge.Q THEN
+    IF Stored >= GVL_Param.FLOW_BUFFER_LENGTH THEN
+        // The oldest edge is still within the second: out of range.
+        Overrun := TRUE;
+        OverrunTime := CallCount;
+        Oldest := NextIndex(Oldest);
+        Stored := Stored - 1;
+    END_IF
+    EdgeTimes[(Oldest - 1 + Stored) MOD GVL_Param.FLOW_BUFFER_LENGTH + 1] := CallCount;
+    Stored := Stored + 1;
+END_IF
+
+IF Overrun AND_THEN Age(OverrunTime) >= Window THEN
+    Overrun := FALSE;
+END_IF
+
+Status.FrequencyHz := UDINT_TO_REAL(Stored);
+Status.FlowRate := Cfg.Factor * Status.FrequencyHz;
+Status.State := 0;
+Status.StateText := 'ACTIVE';
+Status.Error := Overrun;
+IF Overrun THEN
+    Status.ErrorText := CONCAT(CONCAT('Frequency out of range: more than ', UDINT_TO_STRING(GVL_Param.FLOW_BUFFER_LENGTH)), ' edges per second');
+ELSE
+    Status.ErrorText := '';
+END_IF
+]]></ST>
+    </Implementation>
+    <Method Name="Age" Id="{90be32e4-219a-4b37-8174-d8b06eb68621}">
+      <Declaration><![CDATA[
+(*
+    Calls since the given call count. Assigned to a UDINT so that the
+    wrap-around of CallCount is handled on every platform.
+*)
+METHOD PRIVATE Age : UDINT
+VAR_INPUT
+    EventCount : UDINT;  // call count of an event
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Age := CallCount - EventCount;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NextIndex" Id="{1d32f5a8-5ce6-40d1-afda-352f4c5333c0}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NextIndex : UDINT
+VAR_INPUT
+    Index : UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF Index >= GVL_Param.FLOW_BUFFER_LENGTH THEN
+    NextIndex := 1;
+ELSE
+    NextIndex := Index + 1;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

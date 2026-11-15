@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_CtStatus" Id="{ea0fb99d-a4d6-4dbd-b46f-44eb25042c1c}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_CounterTimer. State codes: see E_CtState.
+*)
+TYPE ST_CtStatus EXTENDS ST_StatusBase :
+STRUCT
+    PointsDone : DINT;          // points stored since the last start = last valid Data index
+    MissedTriggers : UDINT;     // trigger mode: edges during a window, since the last start
+    Points : DINT;              // points of the last accepted start
+    StartMode : INT;            // start mode of the last accepted start
+    IntegrationTimeMs : REAL;   // ms, effective integration time (whole cycles)
+    LatencyTimeMs : REAL;       // ms, effective latency time (whole cycles)
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

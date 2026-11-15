@@ -1,0 +1,365 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_CounterTimer" Id="{41a9e7e3-ef34-4ffe-85ee-62c3d9bc539b}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_CounterTimer - multi-channel timed or trigger-gated acquisition
+
+    Acquires a series of points from GVL_Param.CT_CHANNELS REAL inputs at
+    once. Point k of every channel is the mean of that channel's Input over
+    integration window k, stored at Channel[c].Data[k]. All channels share one
+    configuration, one start/stop and one state, so point k of every channel
+    comes from the same PLC cycles. Made for sardana CounterTimer controllers.
+
+    Timed mode (StartMode 0): window 1 starts in the cycle after the start is
+    accepted. Each window lasts IntegrationTimeMs and is followed by
+    LatencyTimeMs, during which inputs are ignored, until Points points are
+    stored. Example, 5 integration and 2 latency cycles, start in cycle 0:
+    windows in cycles 1-5, 8-12, 15-19, ...
+
+    Trigger mode (StartMode 1): each rising edge of Gate starts one window in
+    the cycle of the edge. LatencyTimeMs is ignored. An edge during a window
+    does not start a new one and counts in Status.MissedTriggers.
+
+    The block returns to IDLE after Points points.
+
+    Use from ST, in every cycle:
+        Acq.Channel[1].Input := Ai1.Status.Value;     // or Acq.SetInput(1, Ai1.Status.Value);
+        Acq.Channel[2].Input := Ao1.Status.Value;
+        Acq(Gate := Trig1.Status.Output);              // Gate only matters in trigger mode
+    Assign the inputs before the block call. Channels that are not assigned
+    keep their last value. Call Start()/Stop() from ST before the block call.
+
+    Methods (ST):
+        Start() : BOOL    same as Cmd.Start; TRUE if accepted
+        Stop() : BOOL     same as Cmd.Stop; always accepted
+        SetInput(Index : DINT; Value : REAL) : BOOL
+                          sets Channel[Index].Input; FALSE if Index is outside
+                          1..GVL_Param.CT_CHANNELS
+
+    Cmd (written by the client, cleared by the block when processed):
+        Start   BOOL    start a new acquisition from point 1, PointsDone := 0.
+                        Rejected while running, or if Cfg is invalid.
+        Stop    BOOL    return to IDLE, discard the window in progress, keep
+                        points 1..PointsDone
+
+    Cfg (written by the client, applied at the next accepted start):
+        IntegrationTimeMs  REAL  ms, > 0, rounded to whole cycles, at least 1
+        LatencyTimeMs      REAL  ms, >= 0, rounded to whole cycles; timed mode only
+        Points             DINT  1..GVL_Param.CT_BUFFER_LENGTH
+        StartMode          INT   0 = timed, 1 = trigger
+
+    Status (read only):
+        State              INT         0 IDLE, 1 INTEGRATING, 2 LATENCY,
+                                       3 WAIT_TRIGGER (see E_CtState)
+        StateText          STRING(20)  name of State
+        Error              BOOL        TRUE after a rejected start, until the
+                                       next accepted command
+        ErrorText          STRING(80)  e.g. 'Start rejected: Points 2000000 > 1048576'
+        PointsDone         DINT        points stored since the last start; the
+                                       last valid index of every Data array
+        MissedTriggers     UDINT       trigger mode: edges ignored during a window
+        Points             DINT        Points of the last accepted start
+        StartMode          INT         StartMode of the last accepted start
+        IntegrationTimeMs  REAL        ms, effective (whole cycles x cycle time)
+        LatencyTimeMs      REAL        ms, effective
+
+    Data (read by the client after or during the acquisition):
+        Channel[c].Data    ARRAY[1..GVL_Param.CT_BUFFER_LENGTH] OF REAL
+                           c = 1..GVL_Param.CT_CHANNELS; elements
+                           1..Status.PointsDone are valid. Data is not cleared
+                           at a start.
+
+    Memory: CT_CHANNELS x CT_BUFFER_LENGTH x 4 B. Defaults 8 x 1048576 = 32 MiB
+    per instance; e.g. 4 x 100000 = 1.6 MB.
+*)
+FUNCTION_BLOCK FB_CounterTimer
+VAR_INPUT
+    Cmd : ST_CtCmd;
+    Cfg : ST_CtCfg;
+    // Trigger mode: every rising edge starts one integration window.
+    Gate : BOOL;
+    Channel : ARRAY[1..GVL_Param.CT_CHANNELS] OF ST_CtChannel;
+END_VAR
+VAR_OUTPUT
+    Status : ST_CtStatus;
+END_VAR
+VAR
+    State : E_CtState := E_CtState.IDLE;
+    GateEdge : R_TRIG;
+
+    // Working values, copied from Cfg at the accepted start.
+    IntegrationCycles : UDINT;
+    LatencyCycles : UDINT;
+    Points : DINT;
+    StartMode : INT;
+
+    PointsDone : DINT;
+    MissedTriggers : UDINT;
+    // Cycles integrated in the window in progress.
+    WindowCycles : UDINT;
+    // Cycles spent in the latency in progress.
+    LatencyCount : UDINT;
+    // Timed mode: the call that accepts the start does not integrate.
+    SkipSample : BOOL;
+
+    // Error of the last rejected command, kept until a command is accepted.
+    CmdError : BOOL;
+    CmdErrorText : STRING(80);
+END_VAR
+VAR CONSTANT
+    MODE_TIMED : INT := 0;
+    MODE_TRIGGER : INT := 1;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Commands
+IF Cmd.Stop THEN
+    Cmd.Stop := FALSE;
+    Stop();
+END_IF
+IF Cmd.Start THEN
+    Cmd.Start := FALSE;
+    Start();
+END_IF
+
+// 2. State machine
+GateEdge(CLK := Gate);
+
+CASE State OF
+    E_CtState.WAIT_TRIGGER:
+        IF GateEdge.Q THEN
+            State := E_CtState.INTEGRATING;
+            Integrate();
+        END_IF
+
+    E_CtState.INTEGRATING:
+        IF GateEdge.Q AND StartMode = MODE_TRIGGER THEN
+            MissedTriggers := MissedTriggers + 1;
+        END_IF
+        IF SkipSample THEN
+            SkipSample := FALSE;
+        ELSE
+            Integrate();
+        END_IF
+
+    E_CtState.LATENCY:
+        LatencyCount := LatencyCount + 1;
+        IF LatencyCount >= LatencyCycles THEN
+            State := E_CtState.INTEGRATING;
+        END_IF
+END_CASE
+
+// 3. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="Integrate" Id="{d6623f16-3272-421a-9c37-a49d15994a9b}">
+      <Declaration><![CDATA[
+(*
+    Adds the inputs of this cycle to the window in progress. When the window
+    is complete, stores the means as the next point and moves on.
+*)
+METHOD PRIVATE Integrate
+VAR
+    Index : UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+FOR Index := 1 TO GVL_Param.CT_CHANNELS DO
+    Channel[Index].Sum := Channel[Index].Sum + Channel[Index].Input;
+END_FOR
+WindowCycles := WindowCycles + 1;
+
+IF WindowCycles < IntegrationCycles THEN
+    RETURN;
+END_IF
+
+PointsDone := PointsDone + 1;
+FOR Index := 1 TO GVL_Param.CT_CHANNELS DO
+    Channel[Index].Data[PointsDone] := LREAL_TO_REAL(Channel[Index].Sum / UDINT_TO_LREAL(WindowCycles));
+    Channel[Index].Sum := 0.0;
+END_FOR
+WindowCycles := 0;
+
+IF PointsDone >= Points THEN
+    State := E_CtState.IDLE;
+ELSIF StartMode = MODE_TRIGGER THEN
+    State := E_CtState.WAIT_TRIGGER;
+ELSIF LatencyCycles > 0 THEN
+    State := E_CtState.LATENCY;
+    LatencyCount := 0;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reject" Id="{40c2b331-0f50-4c27-8ced-b2e1162315d0}">
+      <Declaration><![CDATA[
+(*
+    Reports a rejected command. The state does not change.
+*)
+METHOD PRIVATE Reject
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CmdError := TRUE;
+CmdErrorText := Text;
+UpdateStatus();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ResetWindow" Id="{8d685d58-62d8-48dc-b1d0-163d42af43d9}">
+      <Declaration><![CDATA[
+(*
+    Discards the window in progress.
+*)
+METHOD PRIVATE ResetWindow
+VAR
+    Index : UDINT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+FOR Index := 1 TO GVL_Param.CT_CHANNELS DO
+    Channel[Index].Sum := 0.0;
+END_FOR
+WindowCycles := 0;
+LatencyCount := 0;
+SkipSample := FALSE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetInput" Id="{eef57ebe-2f07-493a-add3-0e17fbb1308d}">
+      <Declaration><![CDATA[
+(*
+    Sets the input of one channel; same as Channel[Index].Input := Value.
+    Returns FALSE if Index is outside 1..GVL_Param.CT_CHANNELS.
+*)
+METHOD SetInput : BOOL
+VAR_INPUT
+    Index : DINT;   // channel, 1..GVL_Param.CT_CHANNELS
+    Value : REAL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF Index < 1 OR DINT_TO_UDINT(Index) > GVL_Param.CT_CHANNELS THEN
+    SetInput := FALSE;
+    RETURN;
+END_IF
+Channel[Index].Input := Value;
+SetInput := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Start" Id="{f8a6e5ac-b496-40cf-ba0f-5bd0235a733c}">
+      <Declaration><![CDATA[
+(*
+    Starts a new acquisition with the present Cfg; same as Cmd.Start.
+    Returns TRUE if accepted. Call it before the block call of the cycle.
+*)
+METHOD Start : BOOL
+VAR
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Start := FALSE;
+
+IF State <> E_CtState.IDLE THEN
+    Reject('Start rejected: acquisition running');
+    RETURN;
+END_IF
+IF Cfg.IntegrationTimeMs <= 0.0 THEN
+    Reject('Start rejected: IntegrationTimeMs must be > 0');
+    RETURN;
+END_IF
+IF Cfg.LatencyTimeMs < 0.0 THEN
+    Reject('Start rejected: LatencyTimeMs must be >= 0');
+    RETURN;
+END_IF
+IF Cfg.Points < 1 THEN
+    Text := CONCAT('Start rejected: Points ', DINT_TO_STRING(Cfg.Points));
+    Reject(CONCAT(Text, ' < 1'));
+    RETURN;
+END_IF
+IF DINT_TO_UDINT(Cfg.Points) > GVL_Param.CT_BUFFER_LENGTH THEN
+    Text := CONCAT('Start rejected: Points ', DINT_TO_STRING(Cfg.Points));
+    Text := CONCAT(Text, ' > ');
+    Reject(CONCAT(Text, UDINT_TO_STRING(GVL_Param.CT_BUFFER_LENGTH)));
+    RETURN;
+END_IF
+IF Cfg.StartMode <> MODE_TIMED AND Cfg.StartMode <> MODE_TRIGGER THEN
+    Text := CONCAT('Start rejected: StartMode ', INT_TO_STRING(Cfg.StartMode));
+    Reject(CONCAT(Text, ' unknown (0 timed, 1 trigger)'));
+    RETURN;
+END_IF
+
+IntegrationCycles := MAX(UDINT#1, F_MsToCycles(TimeMs := Cfg.IntegrationTimeMs));
+LatencyCycles := F_MsToCycles(TimeMs := Cfg.LatencyTimeMs);
+Points := Cfg.Points;
+StartMode := Cfg.StartMode;
+Status.IntegrationTimeMs := F_CyclesToMs(Cycles := IntegrationCycles);
+Status.LatencyTimeMs := F_CyclesToMs(Cycles := LatencyCycles);
+
+PointsDone := 0;
+MissedTriggers := 0;
+ResetWindow();
+IF StartMode = MODE_TIMED THEN
+    State := E_CtState.INTEGRATING;
+    SkipSample := TRUE;
+ELSE
+    State := E_CtState.WAIT_TRIGGER;
+END_IF
+
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Start := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Stop" Id="{62a33757-d6bd-4e69-82dd-87778b3297c1}">
+      <Declaration><![CDATA[
+(*
+    Stops the acquisition; same as Cmd.Stop. Discards the window in
+    progress and keeps the points already stored. Always accepted.
+*)
+METHOD Stop : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+State := E_CtState.IDLE;
+ResetWindow();
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Stop := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{1eee0f65-9d84-469b-ac49-d7243cf25fc1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+Status.Error := CmdError;
+Status.ErrorText := CmdErrorText;
+Status.PointsDone := PointsDone;
+Status.MissedTriggers := MissedTriggers;
+Status.Points := Points;
+Status.StartMode := StartMode;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

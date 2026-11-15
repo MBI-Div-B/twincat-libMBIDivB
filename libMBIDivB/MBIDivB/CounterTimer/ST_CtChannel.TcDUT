@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_CtChannel" Id="{9cf798ed-751c-47e9-a479-77c0d3f01ea2}">
+    <Declaration><![CDATA[
+(*
+    One channel of FB_CounterTimer.
+*)
+TYPE ST_CtChannel :
+STRUCT
+    // Value to acquire. Assign it from ST in every cycle; an unassigned
+    // channel keeps its last value.
+    Input : REAL;
+    // Point k at index k, the mean of Input over integration window k.
+    // Only elements 1..Status.PointsDone are valid.
+    Data : ARRAY[1..GVL_Param.CT_BUFFER_LENGTH] OF REAL;
+    // Running sum of Input over the window in progress.
+    {attribute 'hide'}
+    Sum : LREAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

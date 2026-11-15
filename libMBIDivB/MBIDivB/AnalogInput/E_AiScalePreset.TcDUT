@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="E_AiScalePreset" Id="{562e31d4-07bd-4dd6-bc44-20be376484b2}">
+    <Declaration><![CDATA[
+(*
+    Scaling presets for FB_AnalogInput16/32.SetScalePreset. Each preset maps a
+    raw full scale to the nominal full scale passed to SetScalePreset:
+
+    EL31XX_LEGACY      EL31xx, legacy range:    32767   = nominal
+    EL31XX_EXTENDED    EL31xx, 107 % range:     32767   = 1.0737 x nominal
+    ELM3XXX_EXTENDED   ELM3xxx, extended range: 7812500 = nominal
+                                                (8388607 = technical full scale)
+    ELM3XXX_LEGACY     ELM3xxx, legacy range:   8388607 = nominal
+*)
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE E_AiScalePreset :
+(
+    EL31XX_LEGACY := 0,
+    EL31XX_EXTENDED := 1,
+    ELM3XXX_EXTENDED := 2,
+    ELM3XXX_LEGACY := 3
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

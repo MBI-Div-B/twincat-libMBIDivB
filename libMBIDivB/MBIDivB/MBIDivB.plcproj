@@ -1,6 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup>
+    <Compile Include="AnalogInput\E_AiScalePreset.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogInput\FB_AnalogInput16.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogInput\FB_AnalogInput32.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogInput\FB_AnalogInputBase.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogInput\ST_AiCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogInput\ST_AiStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogOutput\E_AoState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogOutput\FB_AnalogOutput.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogOutput\ST_AoCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogOutput\ST_AoCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="AnalogOutput\ST_AoStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Common\F_CyclesToMs.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -19,6 +52,33 @@
     <Compile Include="Common\ST_StatusBase.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="CounterTimer\E_CtState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CounterTimer\FB_CounterTimer.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CounterTimer\ST_CtCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CounterTimer\ST_CtChannel.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CounterTimer\ST_CtCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CounterTimer\ST_CtStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FlowMeter\FB_FlowMeter.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FlowMeter\ST_FlowCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FlowMeter\ST_FlowStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GVLs\GVL_LibInfo.TcGVL">
       <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
@@ -27,14 +87,60 @@
       <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="LedControl\E_LedState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LedControl\FB_LedControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LedControl\ST_LedCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LedControl\ST_LedCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LedControl\ST_LedStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MultiTrigger\E_TrigState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MultiTrigger\FB_MultiTrigger.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MultiTrigger\ST_TrigCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MultiTrigger\ST_TrigCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MultiTrigger\ST_TrigStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShutterControl\FB_ShutterControl.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShutterControl\ST_ShutterCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ShutterControl\ST_ShutterStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Version\Global_Version.TcGVL">
       <LinkAlways>true</LinkAlways>
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="AnalogInput"/>
+    <Folder Include="AnalogOutput"/>
     <Folder Include="Common"/>
+    <Folder Include="CounterTimer"/>
+    <Folder Include="FlowMeter"/>
     <Folder Include="GVLs"/>
+    <Folder Include="LedControl"/>
+    <Folder Include="MultiTrigger"/>
+    <Folder Include="ShutterControl"/>
     <Folder Include="Version"/>
   </ItemGroup>
   <ItemGroup>

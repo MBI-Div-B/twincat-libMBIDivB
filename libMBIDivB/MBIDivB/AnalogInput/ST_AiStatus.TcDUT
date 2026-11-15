@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_AiStatus" Id="{b367be22-0385-4724-b7a9-d0c710505805}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_AnalogInput16/32. See the block headers.
+*)
+TYPE ST_AiStatus EXTENDS ST_StatusBase :
+STRUCT
+    Value : REAL;           // scaled value, engineering units (e.g. V)
+    ValueFiltered : REAL;   // moving average of Value over Cfg.FilterSize calls
+    Raw : DINT;             // last raw value from the terminal
+    RawFullScale : DINT;    // raw value of the active scaling ...
+    ValueFullScale : REAL;  // ... that corresponds to this engineering value
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

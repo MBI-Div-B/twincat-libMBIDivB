@@ -161,3 +161,41 @@ after 5 points `Status.PointsDone` is 5 and the points are at indices 1 to 5.
 
 Read `GVL_LibInfo.Version` to check which library release runs on a PLC
 (see "Version information" above).
+
+## EL2595 setup for FB_LedControl
+
+`FB_LedControl` expects each EL2595 to be configured as follows.
+
+1. **Process data.** In the terminal's *Process Data* tab, select the
+   predefined PDO assignment "Standard digital output with InfoData", then
+   additionally enable the output PDO **0x1601** ("DOX Current",
+   0x7000:11 "Output current"). The terminal then has:
+
+   | PDO    | Entries                                         | Link to                |
+   |--------|-------------------------------------------------|------------------------|
+   | 0x1600 | DOX Control: Output (bit 1), Reset (bit 7)      | `ControlWord`          |
+   | 0x1601 | Output current (mA)                             | `CurrentSetpoint`      |
+   | 0x1A00 | DOX Status: Ready to activate (bit 0), Output active (bit 1), Warning (bit 6), Error (bit 7) | `StatusWord` |
+   | 0x1A01 | Info data 1 (output voltage, 0.01 V)            | `InfoData1`            |
+   |        | Info data 2 (output current, mA)                | `InfoData2`            |
+
+   Info data 1 and 2 must keep their default selection (CoE 0x8002:11
+   output voltage, 0x8002:19 output current).
+
+2. **Startup list.** Add the LED-specific values to the terminal's
+   *Startup* list (tab *Startup*, transition PS), so that a replaced
+   terminal is configured automatically:
+
+   | CoE index | Value                                                        |
+   |-----------|--------------------------------------------------------------|
+   | 0x8000:02 | nominal current of the LED; also the upper limit for `CurrentMa` |
+   | 0x8000:03 | supply voltage                                               |
+   | 0x8000:04 | forward voltage of the LED, the regulator's starting value   |
+   | 0x8000:09 | optional: maximum pulse length, as a hardware backstop to `MaxOnTimeMs` |
+
+   Check the units of these objects in the CoE online view of the terminal
+   before entering values.
+
+The library does not write CoE objects at run time. If the PLC or the
+EtherCAT bus fails, the terminal's SyncManager watchdog (default 100 ms)
+switches the output off.

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_ShutterStatus" Id="{3ea24c79-862b-489d-8c8b-534770ecd24e}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_ShutterControl.
+*)
+TYPE ST_ShutterStatus EXTENDS ST_StatusBase :
+STRUCT
+    HwSignal : BOOL;        // hardware input signal
+    SwSignal : BOOL;        // software signal in use
+    Mode : INT;             // mode in use: 0 = AND, 1 = OR, 2 = HW, 3 = SW
+    ModeText : STRING(10);  // 'AND', 'OR', 'HW' or 'SW'
+    Output : BOOL;          // output signal
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
