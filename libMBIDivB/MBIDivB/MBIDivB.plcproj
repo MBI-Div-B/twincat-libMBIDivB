@@ -144,6 +144,11 @@
     <Folder Include="Version"/>
   </ItemGroup>
   <ItemGroup>
+    <None Include="MBIDivB.tmc">
+      <SubType>Content</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <PlaceholderReference Include="Tc2_Standard">
       <DefaultResolution>Tc2_Standard, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc2_Standard</Namespace>

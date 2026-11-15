@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <TcPlcObject Version="1.1.0.1">
-  <POU Name="PRG_TEST" Id="{b11a1fb5-d6e4-49fe-818b-babb37f97803}" SpecialFunc="None">
+  <POU Name="PRG_TEST" Id="{5001baa3-d01b-476f-bc0d-9bc628a98dd3}" SpecialFunc="None">
     <Declaration><![CDATA[
 (*
     Runs all MBIDivB test suites with TcUnit. Call it from the test task

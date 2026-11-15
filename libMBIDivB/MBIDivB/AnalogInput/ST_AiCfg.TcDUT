@@ -9,7 +9,7 @@ TYPE ST_AiCfg :
 STRUCT
     // Live. Number of values averaged into Status.ValueFiltered, limited to
     // 1..GVL_Param.AI_FILTER_MAX_LENGTH. A change restarts the average.
-    FilterSize : DINT := 1;
+    FilterSize : DINT := 50;
 END_STRUCT
 END_TYPE
 ]]></Declaration>

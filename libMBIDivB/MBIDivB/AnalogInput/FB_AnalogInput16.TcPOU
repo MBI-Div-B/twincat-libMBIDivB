@@ -40,7 +40,7 @@
                                     ValueFiltered, limited to
                                     1..GVL_Param.AI_FILTER_MAX_LENGTH (values
                                     outside are written back clamped); a
-                                    change restarts the average; default 1
+                                    change restarts the average; default 50
 
     Status (read only):
         State           INT         always 0

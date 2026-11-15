@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" TcSmVersion="1.0" TcVersion="3.1.4024.55" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject">
+<TcSmProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" TcSmVersion="1.0" TcVersion="3.1.4024.65" xsi:noNamespaceSchemaLocation="http://www.beckhoff.com/schemas/2012/07/TcSmProject">
   <Project ProjectGUID="{00024DEB-7C6A-4AB0-B8EF-0F94FEE0FFA5}" ShowHideConfigurations="#x3c7" Target64Bit="true">
     <Plc>
       <Project AmsPort="851" FileArchiveSettings="#x000e" GUID="{75B04F5E-4F8A-462D-A2BE-0703EEBB57C9}" Name="MBIDivB" PrjFilePath="MBIDivB\MBIDivB.plcproj" ReloadTmc="true" SymbolicMapping="true" TmcFilePath="MBIDivB\MBIDivB.tmc">
-        <Instance Id="#x08502000" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef">
+        <Instance Id="#x08502000" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef" TmcHash="{27A002EB-EC79-D084-4DB1-ECF21A17C879}">
           <CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
           <Contexts>
             <Context>
@@ -14,11 +14,26 @@
           <Name>MBIDivB Instance</Name>
         </Instance>
       </Project>
+      <Project AmsPort="852" FileArchiveSettings="#x000e" GUID="{0D1CFF21-19FB-41DC-808B-F3BDE03EB303}" Name="MBIDivB_Tests" PrjFilePath="MBIDivB_Tests\MBIDivB_Tests.plcproj" ReloadTmc="true" SymbolicMapping="true" TmcFilePath="MBIDivB_Tests\MBIDivB_Tests.tmc">
+        <Instance Id="#x08502040" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef">
+          <CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
+          <Contexts>
+            <Context>
+              <Id>1</Id>
+              <Name>Default</Name>
+            </Context>
+          </Contexts>
+          <Name>MBIDivB_Tests Instance</Name>
+        </Instance>
+      </Project>
     </Plc>
     <System>
       <Tasks>
         <Task AdtTasks="true" AmsPort="350" CycleTime="100000" Id="3" Priority="20">
           <Name>PlcTask</Name>
+        </Task>
+        <Task AdtTasks="true" AmsPort="351" CycleTime="10000" Id="4" Priority="21">
+          <Name>PlcTask1</Name>
         </Task>
       </Tasks>
     </System>
