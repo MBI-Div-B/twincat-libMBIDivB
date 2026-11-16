@@ -83,7 +83,7 @@ Notes for implementation:
 - [x] 10.1 Override `CT_CHANNELS` and `CT_BUFFER_LENGTH` in `MBIDivB_Tests` with smaller values and rerun the suite; verify the override takes effect (array bounds) and tests pass
 - [x] 10.2 Check naming and documentation conventions across the library (type prefixes, PascalCase members without data type prefixes, UPPER_SNAKE_CASE constants, `Ms` suffix on times, declaration headers present) and fix deviations; verify a grep for declarations matching `^\s*[bnfseu][A-Z]\w*\s*:` in library sources returns nothing
 - [x] 10.3 Add an example program to `MBIDivB_Tests` that instantiates every block as an experiment would, and drive it from Linux over ADS with pyads or TwincatAds against the local runtime: handshake on counter/timer, trigger and waveform, readout of a data array, and `GVL_LibInfo.Version`; verify every Cmd/Cfg/Status member is created as a TwincatAds attribute without being skipped
-- [ ] 10.4 Generate `GVL_LibInfo` for 1.0.0, set `Released`, save the library as `MBIDivB.library`, tag `v1.0.0`, and publish a GitHub release with the library as asset; verify `pre-commit run --all-files` and the full test suite pass on the tagged commit, and `GVL_LibInfo.Dirty` reads FALSE on the installed release
+- [x] 10.4 Generate `GVL_LibInfo` for 1.0.0, set `Released`, save the library as `MBIDivB.library`, tag `v1.0.0`, and publish a GitHub release with the library as asset; verify `pre-commit run --all-files` and the full test suite pass on the tagged commit, and `GVL_LibInfo.Dirty` reads FALSE on the installed release
 
 ## Workflow follow-up
 
