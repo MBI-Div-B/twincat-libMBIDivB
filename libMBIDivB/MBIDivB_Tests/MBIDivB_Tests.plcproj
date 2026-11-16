@@ -44,6 +44,11 @@
     <Folder Include="Tests"/>
   </ItemGroup>
   <ItemGroup>
+    <None Include="MBIDivB_Tests.tmc">
+      <SubType>Content</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <PlaceholderReference Include="MBIDivB">
       <DefaultResolution>MBIDivB, * (MBI Div-B)</DefaultResolution>
       <Namespace>MBIDivB</Namespace>
