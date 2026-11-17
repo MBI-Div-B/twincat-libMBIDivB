@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="E_ShutdownState" Id="{e882dc20-bf52-4dc1-aa81-f66f3608564c}">
+    <Declaration><![CDATA[
+(*
+    States of FB_PlcShutdown, reported as Status.State (code) and
+    Status.StateText (name).
+*)
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE E_ShutdownState :
+(
+    IDLE := 0,          // no shutdown requested
+    REQUESTING := 1,    // request being sent to the operating system
+    SHUTTING_DOWN := 2  // request accepted; the operating system shuts down after the delay
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

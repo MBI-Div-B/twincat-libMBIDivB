@@ -143,11 +143,14 @@ keeps using the last valid value. The live parameters are:
 | `FB_FlowMeter`       | `Factor`                                                       |
 | `FB_ShutterControl`  | `Mode`, `SoftwareSignal`                                       |
 | `FB_LedControl`      | `CurrentMa`                                                    |
+| `FB_FemtoAmplifier`  | `GainExponent`, `LowNoise`, `DcCoupling`, `SettlingTimeMs`     |
 
 ### Units
 
 - Times in milliseconds, member names ending in `Ms`, e.g. `HighMs`.
 - Voltages in volts, ramp velocities in volts per second (`VelocityVPerS`).
+- Currents in amperes (`CurrentA`) or milliamperes (`CurrentMa`), gains in
+  volts per ampere (`GainVPerA`).
 - Times are rounded to whole PLC cycles. `Status` reports the effective time
   in ms, e.g. 2.4 ms configured on a 1 ms task reads 2.0 ms.
 
@@ -203,6 +206,45 @@ The library does not write CoE objects at run time. If the PLC or the
 EtherCAT bus fails, the terminal's SyncManager watchdog (default 100 ms)
 switches the output off.
 
+## DLPCA-200 wiring for FB_FemtoAmplifier
+
+`FB_FemtoAmplifier` controls a Femto DLPCA-200 through its control port
+(Sub-D 25, female). Each variable links to one terminal channel:
+
+| Pin | DLPCA-200 signal              | Variable     | Terminal channel            |
+|-----|-------------------------------|--------------|-----------------------------|
+| 10  | gain, LSB                     | `GainBit0`   | 5 V digital output (EL2124) |
+| 11  | gain                          | `GainBit1`   | 5 V digital output          |
+| 12  | gain, MSB                     | `GainBit2`   | 5 V digital output          |
+| 13  | AC/DC, HIGH = DC              | `DcCoupling` | 5 V digital output, optional |
+| 14  | high speed/low noise, HIGH = low noise | `LowNoise` | 5 V digital output     |
+| 9   | ground of pins 10 to 14       | -            | GND of the output terminal  |
+| 5   | overload, active about 5 V    | `Overload`   | 5 V digital input (EL1124)  |
+| 3   | analog ground, reference of pin 5 | -        | GND of the input terminal   |
+
+- The control inputs are opto-isolated and take 2.3 V to 12 V as HIGH, so
+  5 V outputs such as the EL2124 work. The overload output is below 0.4 V
+  when inactive; read it with a 5 V input such as the EL1124, not a 24 V
+  input.
+- The remote bits are ORed with the amplifier's local switches. For remote
+  control, set the local switches to **Remote** (gain), **AC** and **H**
+  (high speed). If `DcCoupling` is not linked, the local AC/DC switch decides
+  the coupling.
+- Bandwidth limit (FBW/10 Hz) and bias are set locally only.
+- Measure the amplifier's signal output (BNC) with an analog input block and
+  pass it as `Input`; call the input block before the amplifier block. The
+  amplifier does not invert, so `CurrentA` has the sign of the input current.
+
+## FB_PlcShutdown
+
+`FB_PlcShutdown` lets a client shut the PLC down before its power is switched
+off. **An accepted `Cmd.Shutdown` shuts down the whole operating system of
+the PLC**, not only the runtime, after `Cfg.DelayMs` (default 3000 ms,
+rounded to whole seconds). There is no confirmation step, and the PLC only
+starts again when its power is cycled. Give the symbol only to clients that
+are meant to switch the experiment off. `PRG_EXAMPLE` and the tests use a
+derivative that never sends the request.
+
 ## ADS example
 
 `MBIDivB_Tests` contains `PRG_EXAMPLE`, which instantiates every block as an
@@ -214,6 +256,8 @@ from Linux and checks:
   can map; enumerations would be skipped;
 - the command handshake on counter/timer, trigger and waveform, a rejected
   start, a trigger-gated acquisition, and the readout of a data array;
+- a live gain change of the Femto amplifier, which must report SETTLING for
+  the settling time, then READY with the new gain and current;
 - `GVL_LibInfo.Version`.
 
 Setup, once per target (example: Linux host 192.168.122.1, TwinCAT VM

@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_EndPositionSwitches" Id="{26f36c5e-c89f-4c5e-85d5-3bf220ef890b}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_EndPositionSwitches - position from two end-position switches
+
+    Reports the position of a two-position device, e.g. a manually operated
+    valve, from its open and closed end-position switches, and reports both
+    switches active at once as a fault. The block only reads; it does not
+    drive the device. The state is computed in every call.
+
+    I/O (link in the I/O configuration):
+        OpenSwitch    AT %I*  BOOL  digital input, TRUE = open end position
+        ClosedSwitch  AT %I*  BOOL  digital input, TRUE = closed end position
+    The signals are not inverted; normally closed switches are not supported.
+
+    Use from ST, every cycle:
+        Valve1();
+
+    State codes (code = OpenSwitch + 2 x ClosedSwitch):
+        0  BETWEEN  neither switch active. Covers a moving device and
+                    disconnected switches alike; there is no timeout.
+        1  OPEN     only the open switch active
+        2  CLOSED   only the closed switch active
+        3  FAULT    both switches active, e.g. a wiring fault
+
+    No Cmd, no Cfg.
+
+    Status (read only):
+        State         INT         state code, see above (E_EndPositionState)
+        StateText     STRING(20)  'BETWEEN', 'OPEN', 'CLOSED' or 'FAULT'
+        Error         BOOL        TRUE while both switches are active (FAULT);
+                                  clears by itself when the condition ends
+        ErrorText     STRING(80)  'Both end-position switches active
+                                  (open and closed)'
+        OpenSwitch    BOOL        open switch input
+        ClosedSwitch  BOOL        closed switch input
+*)
+FUNCTION_BLOCK FB_EndPositionSwitches
+VAR_INPUT
+    OpenSwitch AT %I* : BOOL;
+    ClosedSwitch AT %I* : BOOL;
+END_VAR
+VAR_OUTPUT
+    Status : ST_EndPositionStatus;
+END_VAR
+VAR
+    State : E_EndPositionState := E_EndPositionState.BETWEEN;
+END_VAR
+VAR CONSTANT
+    FAULT_TEXT : STRING(80) := 'Both end-position switches active (open and closed)';
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF OpenSwitch AND ClosedSwitch THEN
+    State := E_EndPositionState.FAULT;
+ELSIF OpenSwitch THEN
+    State := E_EndPositionState.OPEN;
+ELSIF ClosedSwitch THEN
+    State := E_EndPositionState.CLOSED;
+ELSE
+    State := E_EndPositionState.BETWEEN;
+END_IF
+
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+Status.Error := State = E_EndPositionState.FAULT;
+IF Status.Error THEN
+    Status.ErrorText := FAULT_TEXT;
+ELSE
+    Status.ErrorText := '';
+END_IF
+Status.OpenSwitch := OpenSwitch;
+Status.ClosedSwitch := ClosedSwitch;
+]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>

@@ -8,9 +8,14 @@
     (task 10.3 of openspec/changes/redesign-library-v1).
 
     No I/O is linked here. The program simulates the inputs instead:
-    a sawtooth on Ai1, 20 Hz flow sensor pulses, and an EL2595 that reports
-    "ready to activate". Counter/timer channel 4 records the cycle number,
-    so that the client can check the acquisition timing.
+    a sawtooth on Ai1, 1.0 V on Ai2 (the output of the amplifier Femto1),
+    20 Hz flow sensor pulses, an EL2595 that reports "ready to activate",
+    and valve switches that cycle through OPEN, BETWEEN, CLOSED, BETWEEN
+    every 4000 cycles. Counter/timer channel 4 records the cycle number, so
+    that the client can check the acquisition timing.
+
+    Shutdown1 is FB_PlcShutdownTestable: its command handshake works, but no
+    request ever reaches the operating system.
 
     Client-facing symbols: PRG_EXAMPLE.<instance>.Cmd/.Cfg/.Status, the data
     arrays PRG_EXAMPLE.Acq.Channel[c].Data and PRG_EXAMPLE.Ao1.Data, and
@@ -27,6 +32,9 @@ VAR
     Flow1 : MBIDivB.FB_FlowMeter;
     Shutter1 : MBIDivB.FB_ShutterControl;
     Led1 : MBIDivB.FB_LedControl;
+    Femto1 : MBIDivB.FB_FemtoAmplifier;
+    Valve1 : MBIDivB.FB_EndPositionSwitches;
+    Shutdown1 : FB_PlcShutdownTestable;
 
     // Written TRUE by the client: starts all triggers with Cfg.Enabled.
     StartAllTriggers : BOOL;
@@ -50,6 +58,9 @@ Cycle := Cycle + 1;
 Ai1.Raw := UDINT_TO_INT(Cycle MOD 1000) * 32;
 Flow1.SensorInput := Cycle MOD 50 = 0;
 Led1.StatusWord := 16#0001;
+Ai2.Raw := 781250;  // 1.0 V with ELM3XXX_EXTENDED, 10 V
+Valve1.OpenSwitch := Cycle MOD 4000 < 1500;
+Valve1.ClosedSwitch := Cycle MOD 4000 >= 2000 AND Cycle MOD 4000 < 3500;
 
 // Group start of the enabled triggers, before the trigger calls
 IF StartAllTriggers THEN
@@ -61,12 +72,15 @@ END_IF
 // Blocks
 Ai1();
 Ai2();
+Femto1(Input := Ai2);   // after its input block
 Ao1();
 Trig1();
 Trig2();
 Flow1();
 Shutter1();
 Led1();
+Valve1();
+Shutdown1();
 
 // Acquisition: channel inputs, then the block call, gated by trigger 1
 Acq.Channel[1].Input := Ai1.Status.Value;

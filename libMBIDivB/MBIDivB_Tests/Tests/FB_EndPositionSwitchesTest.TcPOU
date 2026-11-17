@@ -1,0 +1,110 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_EndPositionSwitchesTest" Id="{7eb0cf63-c552-427e-a799-0b1dd92d652f}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_EndPositionSwitches (specs/end-position-switches).
+*)
+FUNCTION_BLOCK FB_EndPositionSwitchesTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    ValveTable : MBIDivB.FB_EndPositionSwitches;
+    ValveNeither : MBIDivB.FB_EndPositionSwitches;
+    ValveFault : MBIDivB.FB_EndPositionSwitches;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+AllCombinations();
+NeitherActiveNoError();
+WiringFaultClears();
+]]></ST>
+    </Implementation>
+    <Method Name="AllCombinations" Id="{dc374bf2-3025-4058-ba80-b959ac4548ce}">
+      <Declaration><![CDATA[
+METHOD PRIVATE AllCombinations
+VAR
+    Combination : INT;
+    Open : BOOL;
+    Closed : BOOL;
+    ExpectedText : STRING(20);
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('AllCombinations');
+
+FOR Combination := 0 TO 3 DO
+    Open := Combination = 1 OR Combination = 3;
+    Closed := Combination = 2 OR Combination = 3;
+    CASE Combination OF
+        0: ExpectedText := 'BETWEEN';
+        1: ExpectedText := 'OPEN';
+        2: ExpectedText := 'CLOSED';
+        3: ExpectedText := 'FAULT';
+    END_CASE
+    ValveTable.OpenSwitch := Open;
+    ValveTable.ClosedSwitch := Closed;
+    ValveTable();
+    IF ValveTable.Status.State <> Combination
+        OR ValveTable.Status.StateText <> ExpectedText
+        OR ValveTable.Status.Error <> (Combination = 3)
+        OR ValveTable.Status.OpenSwitch <> Open
+        OR ValveTable.Status.ClosedSwitch <> Closed
+    THEN
+        Wrong := Wrong + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'combinations with a wrong state, text, error or readback');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NeitherActiveNoError" Id="{89cb2478-682c-4ea3-8bba-be2c677c787f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NeitherActiveNoError
+VAR
+    Call : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NeitherActiveNoError');
+
+FOR Call := 1 TO 10000 DO
+    ValveNeither();
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := ValveNeither.Status.State, Message := 'State');
+AssertEquals_STRING(Expected := 'BETWEEN', Actual := ValveNeither.Status.StateText, Message := 'StateText');
+AssertFalse(Condition := ValveNeither.Status.Error, Message := 'no timeout error');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WiringFaultClears" Id="{9d022106-6abb-431d-bada-85bf896466cc}">
+      <Declaration><![CDATA[
+METHOD PRIVATE WiringFaultClears
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('WiringFaultClears');
+
+ValveFault.OpenSwitch := TRUE;
+ValveFault.ClosedSwitch := TRUE;
+ValveFault();
+AssertTrue(Condition := ValveFault.Status.Error, Message := 'Error while both are active');
+AssertTrue(Condition := FIND(ValveFault.Status.ErrorText, 'Both end-position switches') > 0, Message := 'ErrorText');
+ValveFault.ClosedSwitch := FALSE;
+ValveFault();
+AssertFalse(Condition := ValveFault.Status.Error, Message := 'Error cleared');
+AssertEquals_STRING(Expected := '', Actual := ValveFault.Status.ErrorText, Message := 'ErrorText cleared');
+AssertEquals_STRING(Expected := 'OPEN', Actual := ValveFault.Status.StateText, Message := 'OPEN afterwards');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

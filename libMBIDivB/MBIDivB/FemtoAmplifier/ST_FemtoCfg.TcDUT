@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_FemtoCfg" Id="{591aaffa-f266-46ff-ade4-091672b87c07}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_FemtoAmplifier. All members are live and are not
+    retained: after a PLC start the gain is 10^3 V/A, low noise, DC coupling.
+*)
+TYPE ST_FemtoCfg :
+STRUCT
+    // Live. Gain 10^GainExponent V/A: 3..9 in low-noise mode, 5..11 in
+    // high-speed mode.
+    GainExponent : INT := 3;
+    // Live. TRUE = low-noise mode, FALSE = high-speed mode.
+    LowNoise : BOOL := TRUE;
+    // Live. TRUE = DC coupling, FALSE = AC coupling.
+    DcCoupling : BOOL := TRUE;
+    // Live. ms, >= 0, rounded to whole cycles; applies from the next
+    // settling period on.
+    SettlingTimeMs : REAL := 150.0;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

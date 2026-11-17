@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_ShutdownCfg" Id="{53ef0def-3a59-4757-8d00-5a4f051f5979}">
+    <Declaration><![CDATA[
+(*
+    Configuration of FB_PlcShutdown.
+*)
+TYPE ST_ShutdownCfg :
+STRUCT
+    DelayMs : REAL := 3000.0;   // at Cmd.Shutdown; ms, >= 0, rounded to whole seconds
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

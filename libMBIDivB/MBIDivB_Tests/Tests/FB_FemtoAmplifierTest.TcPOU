@@ -1,0 +1,539 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_FemtoAmplifierTest" Id="{7144c3dd-8799-4056-9d33-3f4e04f425bf}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_FemtoAmplifier (specs/femto-amplifier). Settling times
+    assume the 1 ms test task: 150 ms = 150 calls.
+
+    AiShared is never called; it only gives the blocks that do not test the
+    current an assigned input, so that no input error hides the result.
+*)
+FUNCTION_BLOCK FB_FemtoAmplifierTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    AiShared : MBIDivB.FB_AnalogInput16;
+    FemtoLowest : MBIDivB.FB_FemtoAmplifier;
+    FemtoHighest : MBIDivB.FB_FemtoAmplifier;
+    FemtoTable : MBIDivB.FB_FemtoAmplifier;
+    FemtoModeSwitch : MBIDivB.FB_FemtoAmplifier;
+    FemtoRange : MBIDivB.FB_FemtoAmplifier;
+    FemtoReadback : MBIDivB.FB_FemtoAmplifier;
+    FemtoAc : MBIDivB.FB_FemtoAmplifier;
+    FemtoSettling : MBIDivB.FB_FemtoAmplifier;
+    FemtoChange : MBIDivB.FB_FemtoAmplifier;
+    FemtoTimeChange : MBIDivB.FB_FemtoAmplifier;
+    FemtoZero : MBIDivB.FB_FemtoAmplifier;
+    FemtoNegativeTime : MBIDivB.FB_FemtoAmplifier;
+    FemtoOverload : MBIDivB.FB_FemtoAmplifier;
+    AiCurrent : MBIDivB.FB_AnalogInput16;
+    FemtoCurrent : MBIDivB.FB_FemtoAmplifier;
+    AiNegative : MBIDivB.FB_AnalogInput32;
+    FemtoNegative : MBIDivB.FB_FemtoAmplifier;
+    AiMixing : MBIDivB.FB_AnalogInput16;
+    FemtoMixing : MBIDivB.FB_FemtoAmplifier;
+    FemtoMissing : MBIDivB.FB_FemtoAmplifier;
+    FemtoStartup : MBIDivB.FB_FemtoAmplifier;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+LowestLowNoiseGain();
+HighestHighSpeedGain();
+BitTable();
+ModeSwitchedBeforeExponent();
+ExponentOutOfRange();
+GainReadback();
+AcCoupling();
+DefaultSettling();
+ChangeDuringSettling();
+SettlingTimeChangedDuringSettling();
+ZeroSettlingTime();
+NegativeSettlingTime();
+OverloadNoError();
+CurrentFromVoltage();
+NegativeCurrent();
+NoMixingOfGains();
+MissingInput();
+StartupState();
+]]></ST>
+    </Implementation>
+    <Method Name="AcCoupling" Id="{5c60e0b4-6ad6-4373-9582-70218c9bc53f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE AcCoupling
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('AcCoupling');
+
+FemtoAc(Input := AiShared);
+AssertTrue(Condition := FemtoAc.DcCoupling, Message := 'DC after start');
+FemtoAc.Cfg.DcCoupling := FALSE;
+FemtoAc();
+AssertFalse(Condition := FemtoAc.DcCoupling, Message := 'AC output in the next call');
+AssertFalse(Condition := FemtoAc.Status.DcCoupling, Message := 'Status.DcCoupling');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="BitTable" Id="{ea41c50d-84d9-4452-ab68-139543387c71}">
+      <Declaration><![CDATA[
+METHOD PRIVATE BitTable
+VAR
+    Mode : INT;
+    LowNoise : BOOL;
+    FirstExponent : INT;
+    Exponent : INT;
+    Code : INT;
+    Wrong : INT;
+    Code7 : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('BitTable');
+
+// DLPCA-200 table: code 0 is 10^3 V/A low noise or 10^5 V/A high speed.
+FOR Mode := 0 TO 1 DO
+    LowNoise := Mode = 0;
+    IF LowNoise THEN
+        FirstExponent := 3;
+    ELSE
+        FirstExponent := 5;
+    END_IF
+    FOR Exponent := FirstExponent TO FirstExponent + 6 DO
+        FemtoTable.Cfg.LowNoise := LowNoise;
+        FemtoTable.Cfg.GainExponent := Exponent;
+        FemtoTable(Input := AiShared);
+        Code := OutputCode(Femto := FemtoTable);
+        IF Code <> Exponent - FirstExponent OR FemtoTable.LowNoise <> LowNoise OR FemtoTable.Status.Error THEN
+            Wrong := Wrong + 1;
+        END_IF
+        IF Code = 7 THEN
+            Code7 := Code7 + 1;
+        END_IF
+    END_FOR
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'settings not matching the bit table');
+AssertEquals_INT(Expected := 0, Actual := Code7, Message := 'code 7 output');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ChangeDuringSettling" Id="{53f2bb26-381b-4a4f-af74-17802d73d013}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ChangeDuringSettling
+VAR
+    Call : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ChangeDuringSettling');
+
+FemtoChange(Input := AiShared);
+CountSettlingCalls(Femto := FemtoChange);
+FemtoChange.Cfg.GainExponent := 4;
+FOR Call := 1 TO 100 DO
+    FemtoChange();
+END_FOR
+FemtoChange.Cfg.GainExponent := 5;
+AssertEquals_INT(Expected := 150, Actual := CountSettlingCalls(Femto := FemtoChange), Message := 'SETTLING calls after the second change');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CountSettlingCalls" Id="{76c921ab-8b50-4f74-8769-f1976bfed308}">
+      <Declaration><![CDATA[
+(*
+    Calls Femto until it reports READY and returns the number of calls that
+    reported SETTLING. Stops after 1000 calls.
+*)
+METHOD PRIVATE CountSettlingCalls : INT
+VAR_IN_OUT
+    Femto : MBIDivB.FB_FemtoAmplifier;
+END_VAR
+VAR
+    Call : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CountSettlingCalls := 0;
+FOR Call := 1 TO 1000 DO
+    Femto();
+    IF Femto.Status.State <> 1 THEN
+        RETURN;
+    END_IF
+    CountSettlingCalls := CountSettlingCalls + 1;
+END_FOR
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CurrentFromVoltage" Id="{31ccf1ac-459e-4140-bccd-b9e5a77a22ef}">
+      <Declaration><![CDATA[
+METHOD PRIVATE CurrentFromVoltage
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('CurrentFromVoltage');
+
+AiCurrent.SetScale(RawFullScale := 1000, ValueFullScale := 1.0);
+AiCurrent.Raw := 2000;
+FemtoCurrent.Cfg.GainExponent := 6;
+AiCurrent();
+FemtoCurrent(Input := AiCurrent);
+AssertEquals_REAL(Expected := 2.0E-6, Actual := FemtoCurrent.Status.CurrentA, Delta := 1.0E-12, Message := 'CurrentA');
+AssertFalse(Condition := FemtoCurrent.Status.Error, Message := 'Error');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DefaultSettling" Id="{e36cc442-f8ee-4241-a17a-cfed1e09a4ac}">
+      <Declaration><![CDATA[
+METHOD PRIVATE DefaultSettling
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('DefaultSettling');
+
+FemtoSettling(Input := AiShared);
+CountSettlingCalls(Femto := FemtoSettling);
+FemtoSettling.Cfg.GainExponent := 4;
+AssertEquals_INT(Expected := 150, Actual := CountSettlingCalls(Femto := FemtoSettling), Message := 'SETTLING calls');
+AssertEquals_INT(Expected := 0, Actual := FemtoSettling.Status.State, Message := 'READY afterwards');
+AssertFalse(Condition := FemtoSettling.Status.Settling, Message := 'Status.Settling afterwards');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ExponentOutOfRange" Id="{37e540a5-1cd4-4848-bdb8-4730ec523149}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ExponentOutOfRange
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ExponentOutOfRange');
+
+FemtoRange.Cfg.LowNoise := FALSE;
+FemtoRange.Cfg.GainExponent := 7;
+FemtoRange(Input := AiShared);
+FemtoRange.Cfg.GainExponent := 12;
+FemtoRange();
+AssertEquals_INT(Expected := 7, Actual := FemtoRange.Status.GainExponent, Message := 'last valid gain in use');
+AssertEquals_INT(Expected := 2, Actual := OutputCode(Femto := FemtoRange), Message := 'outputs keep 10^7 V/A');
+AssertTrue(Condition := FemtoRange.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(FemtoRange.Status.ErrorText, 'GainExponent') > 0, Message := 'names GainExponent');
+AssertTrue(Condition := FIND(FemtoRange.Status.ErrorText, '5..11') > 0, Message := 'names the valid range');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GainReadback" Id="{aa40aabd-99f1-4645-8a16-312d7e96e8b8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE GainReadback
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('GainReadback');
+
+FemtoReadback.Cfg.GainExponent := 7;
+FemtoReadback(Input := AiShared);
+AssertEquals_REAL(Expected := 1.0E7, Actual := FemtoReadback.Status.GainVPerA, Delta := 0.5, Message := 'GainVPerA');
+AssertEquals_INT(Expected := 7, Actual := FemtoReadback.Status.GainExponent, Message := 'GainExponent');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="HighestHighSpeedGain" Id="{59d9d94c-4659-4659-84a2-3cf9b4736dc9}">
+      <Declaration><![CDATA[
+METHOD PRIVATE HighestHighSpeedGain
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('HighestHighSpeedGain');
+
+FemtoHighest.Cfg.LowNoise := FALSE;
+FemtoHighest.Cfg.GainExponent := 11;
+FemtoHighest(Input := AiShared);
+AssertTrue(Condition := FemtoHighest.GainBit2, Message := 'pin 12');
+AssertTrue(Condition := FemtoHighest.GainBit1, Message := 'pin 11');
+AssertFalse(Condition := FemtoHighest.GainBit0, Message := 'pin 10');
+AssertFalse(Condition := FemtoHighest.LowNoise, Message := 'pin 14 high speed');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LowestLowNoiseGain" Id="{db9ba35b-c1be-40c1-b989-45c0a5af1f63}">
+      <Declaration><![CDATA[
+METHOD PRIVATE LowestLowNoiseGain
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('LowestLowNoiseGain');
+
+FemtoLowest.Cfg.LowNoise := TRUE;
+FemtoLowest.Cfg.GainExponent := 3;
+FemtoLowest(Input := AiShared);
+AssertFalse(Condition := FemtoLowest.GainBit2, Message := 'pin 12');
+AssertFalse(Condition := FemtoLowest.GainBit1, Message := 'pin 11');
+AssertFalse(Condition := FemtoLowest.GainBit0, Message := 'pin 10');
+AssertTrue(Condition := FemtoLowest.LowNoise, Message := 'pin 14 low noise');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="MissingInput" Id="{b7a6a4d9-8be0-493c-abd4-3cfa477f3ea8}">
+      <Declaration><![CDATA[
+METHOD PRIVATE MissingInput
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('MissingInput');
+
+FemtoMissing();
+AssertTrue(Condition := FemtoMissing.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(FemtoMissing.Status.ErrorText, 'Input') > 0, Message := 'names the input');
+AssertEquals_REAL(Expected := 0.0, Actual := FemtoMissing.Status.CurrentA, Delta := 0.0, Message := 'CurrentA');
+AssertEquals_REAL(Expected := 0.0, Actual := FemtoMissing.Status.CurrentFilteredA, Delta := 0.0, Message := 'CurrentFilteredA');
+FemtoMissing.Cfg.GainExponent := 5;
+FemtoMissing();
+AssertEquals_INT(Expected := 5, Actual := FemtoMissing.Status.GainExponent, Message := 'gain change applied');
+AssertEquals_INT(Expected := 2, Actual := OutputCode(Femto := FemtoMissing), Message := 'outputs select 10^5 V/A low noise');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ModeSwitchedBeforeExponent" Id="{09e1c844-7999-447d-ac68-09c4b47aae2e}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ModeSwitchedBeforeExponent
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ModeSwitchedBeforeExponent');
+
+FemtoModeSwitch(Input := AiShared);
+FemtoModeSwitch.Cfg.LowNoise := FALSE;
+FemtoModeSwitch();
+AssertTrue(Condition := FemtoModeSwitch.Status.Error, Message := 'Error after the first write');
+AssertEquals_INT(Expected := 0, Actual := OutputCode(Femto := FemtoModeSwitch), Message := 'still 10^3 V/A');
+AssertTrue(Condition := FemtoModeSwitch.LowNoise, Message := 'still low noise');
+FemtoModeSwitch.Cfg.GainExponent := 5;
+FemtoModeSwitch();
+AssertFalse(Condition := FemtoModeSwitch.Status.Error, Message := 'Error after the second write');
+AssertEquals_INT(Expected := 0, Actual := OutputCode(Femto := FemtoModeSwitch), Message := 'code of 10^5 V/A high speed');
+AssertFalse(Condition := FemtoModeSwitch.LowNoise, Message := 'high speed');
+AssertEquals_INT(Expected := 5, Actual := FemtoModeSwitch.Status.GainExponent, Message := 'GainExponent');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NegativeCurrent" Id="{6951df32-102e-4f48-8427-2ac26446035e}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NegativeCurrent
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NegativeCurrent');
+
+AiNegative.SetScale(RawFullScale := 1000, ValueFullScale := 1.0);
+AiNegative.Raw := -500;
+FemtoNegative.Cfg.GainExponent := 9;
+AiNegative();
+FemtoNegative(Input := AiNegative);
+AssertEquals_REAL(Expected := -5.0E-10, Actual := FemtoNegative.Status.CurrentA, Delta := 1.0E-16, Message := 'CurrentA');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NegativeSettlingTime" Id="{33516b9e-18f3-4284-bcfd-292c8a81dc89}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NegativeSettlingTime
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NegativeSettlingTime');
+
+FemtoNegativeTime(Input := AiShared);
+FemtoNegativeTime.Cfg.SettlingTimeMs := -1.0;
+FemtoNegativeTime();
+AssertTrue(Condition := FemtoNegativeTime.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(FemtoNegativeTime.Status.ErrorText, 'SettlingTimeMs') > 0, Message := 'names SettlingTimeMs');
+AssertEquals_REAL(Expected := 150.0, Actual := FemtoNegativeTime.Status.SettlingTimeMs, Delta := 1.0E-3, Message := 'previous value kept');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NoMixingOfGains" Id="{67978f8e-e8fb-462b-894c-732d1ae1bb1c}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NoMixingOfGains
+VAR
+    Call : INT;
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NoMixingOfGains');
+
+AiMixing.SetScale(RawFullScale := 1000, ValueFullScale := 1.0);
+AiMixing.Cfg.FilterSize := 100;
+FemtoMixing.Cfg.GainExponent := 5;
+FemtoMixing.Cfg.SettlingTimeMs := 10.0;
+
+// 1.0 V at 10^5 V/A until settled and the average is full
+AiMixing.Raw := 1000;
+FOR Call := 1 TO 200 DO
+    AiMixing();
+    FemtoMixing(Input := AiMixing);
+END_FOR
+AssertEquals_REAL(Expected := 1.0E-5, Actual := FemtoMixing.Status.CurrentFilteredA, Delta := 1.0E-11, Message := 'filtered at 10^5 V/A');
+
+// Gain change to 10^6 V/A; while settling the output moves to 2.0 V.
+// The filtered current must equal the current until settling has ended.
+FemtoMixing.Cfg.GainExponent := 6;
+AiMixing.Raw := 2000;
+FOR Call := 1 TO 100 DO
+    AiMixing();
+    FemtoMixing();
+    IF FemtoMixing.Status.CurrentFilteredA <> FemtoMixing.Status.CurrentA THEN
+        Wrong := Wrong + 1;
+    END_IF
+    IF FemtoMixing.Status.State = 0 THEN
+        EXIT;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := FemtoMixing.Status.State, Message := 'READY after settling');
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'calls with CurrentFilteredA <> CurrentA while settling');
+
+// After settling ended, only new voltages count.
+AiMixing.Raw := 3000;
+FOR Call := 1 TO 5 DO
+    AiMixing();
+    FemtoMixing();
+    IF ABS(FemtoMixing.Status.CurrentFilteredA - 3.0E-6) > 1.0E-12 THEN
+        Wrong := Wrong + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'calls with CurrentFilteredA <> 3.0E-6 A after settling');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="OutputCode" Id="{15f690e5-8db7-4543-bfe7-11ce5012ac99}">
+      <Declaration><![CDATA[
+(*
+    Gain code on the three gain outputs of Femto: pin 12 MSB, pin 10 LSB.
+*)
+METHOD PRIVATE OutputCode : INT
+VAR_IN_OUT
+    Femto : MBIDivB.FB_FemtoAmplifier;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+OutputCode := 4 * BOOL_TO_INT(Femto.GainBit2) + 2 * BOOL_TO_INT(Femto.GainBit1) + BOOL_TO_INT(Femto.GainBit0);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="OverloadNoError" Id="{c5098744-474a-4e11-a0c6-fa31b16e174f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE OverloadNoError
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('OverloadNoError');
+
+FemtoOverload(Input := AiShared);
+FemtoOverload.Overload := TRUE;
+FemtoOverload();
+AssertTrue(Condition := FemtoOverload.Status.Overload, Message := 'Status.Overload');
+AssertFalse(Condition := FemtoOverload.Status.Error, Message := 'Error');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SettlingTimeChangedDuringSettling" Id="{b007b6a8-3d14-4ae1-ab2d-4018ee1e76e2}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SettlingTimeChangedDuringSettling
+VAR
+    Call : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SettlingTimeChangedDuringSettling');
+
+FemtoTimeChange(Input := AiShared);
+CountSettlingCalls(Femto := FemtoTimeChange);
+FemtoTimeChange.Cfg.GainExponent := 4;
+FOR Call := 1 TO 20 DO
+    FemtoTimeChange();
+END_FOR
+FemtoTimeChange.Cfg.SettlingTimeMs := 10.0;
+AssertEquals_INT(Expected := 130, Actual := CountSettlingCalls(Femto := FemtoTimeChange), Message := 'remaining SETTLING calls of the running period');
+AssertEquals_REAL(Expected := 10.0, Actual := FemtoTimeChange.Status.SettlingTimeMs, Delta := 1.0E-3, Message := 'Status.SettlingTimeMs');
+FemtoTimeChange.Cfg.GainExponent := 5;
+AssertEquals_INT(Expected := 10, Actual := CountSettlingCalls(Femto := FemtoTimeChange), Message := 'SETTLING calls of the next period');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="StartupState" Id="{b72afae9-e631-4d0c-bc72-23a731d8baec}">
+      <Declaration><![CDATA[
+METHOD PRIVATE StartupState
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('StartupState');
+
+FemtoStartup(Input := AiShared);
+AssertEquals_INT(Expected := 0, Actual := OutputCode(Femto := FemtoStartup), Message := 'code of 10^3 V/A');
+AssertTrue(Condition := FemtoStartup.LowNoise, Message := 'low noise');
+AssertTrue(Condition := FemtoStartup.DcCoupling, Message := 'DC coupling');
+AssertEquals_INT(Expected := 1, Actual := FemtoStartup.Status.State, Message := 'State');
+AssertEquals_STRING(Expected := 'SETTLING', Actual := FemtoStartup.Status.StateText, Message := 'StateText');
+AssertTrue(Condition := FemtoStartup.Status.Settling, Message := 'Status.Settling');
+AssertEquals_REAL(Expected := 150.0, Actual := FemtoStartup.Status.SettlingTimeMs, Delta := 1.0E-3, Message := 'SettlingTimeMs');
+AssertEquals_REAL(Expected := 1.0E3, Actual := FemtoStartup.Status.GainVPerA, Delta := 1.0E-3, Message := 'GainVPerA');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ZeroSettlingTime" Id="{2a0e2dca-cc8f-4b5e-b27a-879101a162c4}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ZeroSettlingTime
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ZeroSettlingTime');
+
+FemtoZero(Input := AiShared);
+CountSettlingCalls(Femto := FemtoZero);
+FemtoZero.Cfg.SettlingTimeMs := 0.0;
+FemtoZero.Cfg.GainExponent := 4;
+FemtoZero();
+AssertEquals_INT(Expected := 0, Actual := FemtoZero.Status.State, Message := 'READY in the call of the change');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_ShutdownStatus" Id="{4f367104-b226-4b3f-bb66-a63f58ef1102}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_PlcShutdown. State codes: see E_ShutdownState.
+*)
+TYPE ST_ShutdownStatus EXTENDS ST_StatusBase :
+STRUCT
+    DelayMs : REAL;     // ms; effective delay of the last accepted command, whole seconds
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

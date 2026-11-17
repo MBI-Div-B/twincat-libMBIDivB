@@ -1,0 +1,80 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_PlcShutdownTestable" Id="{a5a1aaee-2c22-4aaa-aafc-1f5f32ccfaa9}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_PlcShutdown with a simulated operating system: SendRequest is
+    overridden, so no shutdown request ever reaches the operating system.
+    Used by FB_PlcShutdownTest and PRG_EXAMPLE.
+
+    Simulation, like NT_Shutdown: a rising edge of Start sends a request.
+    The request reports Busy for BusyCalls calls (counting the edge call),
+    then completes, with an error if Fail is TRUE.
+*)
+FUNCTION_BLOCK FB_PlcShutdownTestable EXTENDS MBIDivB.FB_PlcShutdown
+VAR_INPUT
+    // Calls with Busy TRUE before the request completes.
+    BusyCalls : INT := 2;
+    // The request completes with ERR and FailErrorId.
+    Fail : BOOL;
+    FailErrorId : UDINT := 1793;
+END_VAR
+VAR_OUTPUT
+    // Requests that would have reached the operating system.
+    Requests : INT;
+    // Delay of the last request, s.
+    LastDelayS : UDINT;
+END_VAR
+VAR
+    PreviousStart : BOOL;
+    RemainingBusyCalls : INT;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+SUPER^();
+]]></ST>
+    </Implementation>
+    <Method Name="SendRequest" Id="{8657beb8-99cc-4f72-af05-9226faea4797}">
+      <Declaration><![CDATA[
+METHOD PROTECTED SendRequest
+VAR_INPUT
+    DelayS : UDINT;     // delay in seconds
+    Start : BOOL;       // a rising edge sends the request
+END_VAR
+VAR_OUTPUT
+    Busy : BOOL;        // request in progress
+    Error : BOOL;       // request failed (valid when Busy is FALSE)
+    ErrorId : UDINT;    // ADS error code of the failure
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Busy := FALSE;
+Error := FALSE;
+ErrorId := 0;
+
+IF Start AND NOT PreviousStart THEN
+    Requests := Requests + 1;
+    LastDelayS := DelayS;
+    RemainingBusyCalls := BusyCalls;
+END_IF
+PreviousStart := Start;
+
+IF NOT Start THEN
+    RETURN;
+END_IF
+IF RemainingBusyCalls > 0 THEN
+    RemainingBusyCalls := RemainingBusyCalls - 1;
+    Busy := TRUE;
+    RETURN;
+END_IF
+Error := Fail;
+IF Fail THEN
+    ErrorId := FailErrorId;
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

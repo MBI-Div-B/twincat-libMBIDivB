@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_EndPositionStatus" Id="{553439f9-8a60-4415-bd99-2bcaddbe4390}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_EndPositionSwitches. State codes: see E_EndPositionState.
+*)
+TYPE ST_EndPositionStatus EXTENDS ST_StatusBase :
+STRUCT
+    OpenSwitch : BOOL;      // open end-position switch active
+    ClosedSwitch : BOOL;    // closed end-position switch active
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

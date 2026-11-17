@@ -4,6 +4,7 @@ Checks, against a running PLC:
 - every Cmd/Cfg/Status member of every block has a type that pyads can map,
   so TwincatAds creates an attribute for it instead of skipping it;
 - the command handshake on counter/timer, trigger and waveform;
+- a live gain change of the Femto amplifier and its settling state;
 - a trigger-gated acquisition and the readout of a data array;
 - the library version symbol GVL_LibInfo.Version.
 
@@ -39,12 +40,24 @@ INSTANCE_STRUCTS = {
     "Flow1": {"Cfg": "ST_FlowCfg", "Status": "ST_FlowStatus"},
     "Shutter1": {"Cfg": "ST_ShutterCfg", "Status": "ST_ShutterStatus"},
     "Led1": {"Cmd": "ST_LedCmd", "Cfg": "ST_LedCfg", "Status": "ST_LedStatus"},
+    "Femto1": {"Cfg": "ST_FemtoCfg", "Status": "ST_FemtoStatus"},
+    "Valve1": {"Status": "ST_EndPositionStatus"},
+    "Shutdown1": {
+        "Cmd": "ST_ShutdownCmd",
+        "Cfg": "ST_ShutdownCfg",
+        "Status": "ST_ShutdownStatus",
+    },
 }
 
 # State codes used below, see the E_*State enumerations of the library.
 CT_IDLE, CT_INTEGRATING = 0, 1
 TRIG_IDLE, TRIG_DELAY = 0, 1
 AO_WAVEFORM_IDLE, AO_WAVEFORM_PLAYING = 1, 2
+FEMTO_READY, FEMTO_SETTLING = 0, 1
+
+# PRG_EXAMPLE simulates 1.0 V on Ai2, the input of Femto1.
+FEMTO_INPUT_V = 1.0
+FEMTO_SETTLING_S = 0.150
 
 
 class CheckFailed(Exception):
@@ -267,6 +280,44 @@ def check_waveform(plc: pyads.Connection) -> None:
     write(plc, f"{PROGRAM}.Ao1.Cfg.Mode", 0)
 
 
+def check_femto_gain_change(plc: pyads.Connection) -> None:
+    """Live gain change: SETTLING for the settling time, then READY."""
+    wait_until(
+        lambda: status(plc, "Femto1", "State") == FEMTO_READY,
+        "Femto1 to be READY before the change",
+    )
+    write_values(
+        plc,
+        f"{PROGRAM}.Femto1.Cfg",
+        {"LowNoise": True, "SettlingTimeMs": 150.0, "GainExponent": 6},
+    )
+    changed_at = time.monotonic()
+    wait_until(
+        lambda: status(plc, "Femto1", "GainExponent") == 6,
+        "Femto1 to apply GainExponent 6",
+    )
+    expect(status(plc, "Femto1", "Settling"), "Status.Settling after the change")
+    wait_until(
+        lambda: status(plc, "Femto1", "State") == FEMTO_READY,
+        "Femto1 to be READY after the change",
+    )
+    settled_s = time.monotonic() - changed_at
+    expect(
+        settled_s >= FEMTO_SETTLING_S - 0.02,
+        f"READY after {settled_s:.3f} s, before the settling time",
+    )
+    expect(not status(plc, "Femto1", "Error"), "no error after a valid change")
+    gain = status(plc, "Femto1", "GainVPerA")
+    expect(abs(gain - 1.0e6) < 1.0, f"GainVPerA {gain}, expected 1.0E6")
+    current = status(plc, "Femto1", "CurrentA")
+    expected = FEMTO_INPUT_V / 1.0e6
+    expect(
+        abs(current - expected) < 1e-6 * expected,
+        f"CurrentA {current}, expected {expected}",
+    )
+    write(plc, f"{PROGRAM}.Femto1.Cfg.GainExponent", 3)
+
+
 CHECKS = [
     check_attribute_types,
     check_library_version,
@@ -275,6 +326,7 @@ CHECKS = [
     check_trigger_handshake,
     check_gated_acquisition,
     check_waveform,
+    check_femto_gain_change,
 ]
 
 

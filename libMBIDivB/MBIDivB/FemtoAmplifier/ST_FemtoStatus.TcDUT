@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="ST_FemtoStatus" Id="{433a9431-e2c1-403a-855b-b189c0a21940}">
+    <Declaration><![CDATA[
+(*
+    Status of FB_FemtoAmplifier. State codes: see E_FemtoState.
+*)
+TYPE ST_FemtoStatus EXTENDS ST_StatusBase :
+STRUCT
+    Settling : BOOL;            // TRUE while the state is SETTLING
+    GainExponent : INT;         // gain exponent in use
+    LowNoise : BOOL;            // mode in use: TRUE = low noise, FALSE = high speed
+    DcCoupling : BOOL;          // coupling in use: TRUE = DC, FALSE = AC
+    GainVPerA : REAL;           // V/A; gain in use, 10^GainExponent
+    SettlingTimeMs : REAL;      // ms; effective settling time for the next settling period
+    Overload : BOOL;            // amplifier reports overload
+    CurrentA : REAL;            // A; input current, input voltage / GainVPerA
+    CurrentFilteredA : REAL;    // A; filtered input current
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,330 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_FemtoAmplifier" Id="{d17b9fcd-ee8c-4366-b2d6-41b5b869217b}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_FemtoAmplifier - Femto DLPCA-200 current amplifier, remote controlled
+
+    Sets gain, low-noise/high-speed mode and AC/DC coupling of a DLPCA-200
+    through its digital control inputs, reads back its overload output,
+    reports a settling state after every change, and converts the voltage
+    measured by an analog input block into the amplifier's input current.
+
+    Gain code on pins 12..10: GainExponent - 3 in low-noise mode,
+    GainExponent - 5 in high-speed mode. Code 7 is never output.
+
+    After a PLC start the gain is 10^3 V/A, low noise, DC coupling, the
+    settling time 150 ms, and the state SETTLING. Cfg is not retained.
+
+    I/O (link in the I/O configuration), DLPCA-200 control port (Sub-D 25):
+        GainBit0    AT %Q*  BOOL  pin 10, gain LSB         5 V output, e.g. EL2124
+        GainBit1    AT %Q*  BOOL  pin 11, gain
+        GainBit2    AT %Q*  BOOL  pin 12, gain MSB
+        DcCoupling  AT %Q*  BOOL  pin 13, TRUE = DC        optional
+        LowNoise    AT %Q*  BOOL  pin 14, TRUE = low noise
+        Overload    AT %I*  BOOL  pin 5, TRUE = overload   5 V input, e.g. EL1124
+    Pin 9 is the ground of the control inputs (pins 10..14), pin 3 the
+    ground of the overload output. The control inputs take 2.3..12 V as HIGH.
+    The remote bits are ORed with the local switches: set them to "Remote",
+    "AC" and "H" (high speed). If DcCoupling is not linked, the local AC/DC
+    switch decides the coupling. Bandwidth (FBW/10 Hz) and bias are local
+    only.
+
+    Use from ST, every cycle, the analog input block first:
+        Ai1();                          // measures the amplifier output
+        Femto1(Input := Ai1);           // FB_AnalogInput16 or 32
+        Acq.Channel[1].Input := Femto1.Status.CurrentA;
+    In the reverse order, the current lags by one cycle and the filter
+    restart at the end of settling comes one cycle late.
+
+    Input (ST only):
+        Input   REFERENCE TO FB_AnalogInputBase
+                analog input block that measures the amplifier's output
+                voltage. Without it the block reports an error and the
+                currents read 0; the control outputs work as usual.
+
+    Cfg (written by the client, all live):
+        GainExponent    INT   gain 10^GainExponent V/A: 3..9 with LowNoise
+                              TRUE, 5..11 with LowNoise FALSE; default 3.
+                              GainExponent and LowNoise are validated as a
+                              pair. An invalid pair is reported as an error
+                              while present, and the last valid pair stays in
+                              use. When switching mode, the error between two
+                              writes is harmless.
+        LowNoise        BOOL  TRUE = low-noise mode, FALSE = high-speed mode;
+                              default TRUE
+        DcCoupling      BOOL  TRUE = DC, FALSE = AC coupling; default TRUE
+        SettlingTimeMs  REAL  ms, >= 0, rounded to whole cycles; default 150.
+                              A negative value is reported as an error while
+                              present, and the last valid value stays. A
+                              change applies from the next settling period on;
+                              with 0 the state is READY in the cycle of the
+                              change.
+
+    Status (read only):
+        State             INT         0 READY, 1 SETTLING (see E_FemtoState).
+                                      SETTLING for the settling time after
+                                      every change of gain, mode or coupling
+                                      in use and after a PLC start; a further
+                                      change restarts the settling time.
+        StateText         STRING(20)  'READY' or 'SETTLING'
+        Error             BOOL        TRUE while Input is not assigned, the
+                                      gain pair is invalid, or SettlingTimeMs
+                                      is negative. An overload is no error.
+        ErrorText         STRING(80)  the first of these that applies:
+                                      'Input not assigned (analog input block
+                                      of the amplifier output)',
+                                      e.g. 'GainExponent 12 outside 5..11
+                                      (high speed)',
+                                      'SettlingTimeMs must be >= 0'
+        Settling          BOOL        TRUE while SETTLING
+        GainExponent      INT         gain exponent in use
+        LowNoise          BOOL        mode in use, TRUE = low noise
+        DcCoupling        BOOL        coupling in use, TRUE = DC
+        GainVPerA         REAL        V/A; gain in use, 10^GainExponent
+        SettlingTimeMs    REAL        ms; effective settling time, used from
+                                      the next settling period on
+        Overload          BOOL        overload output of the amplifier
+        CurrentA          REAL        A; Input.Status.Value / GainVPerA, with
+                                      the gain in use in the same cycle. The
+                                      amplifier does not invert.
+        CurrentFilteredA  REAL        A; while READY
+                                      Input.Status.ValueFiltered / GainVPerA.
+                                      While SETTLING and in the cycle settling
+                                      ends, equal to CurrentA. When settling
+                                      ends, the block restarts the input's
+                                      moving average (Input.RestartFilter()),
+                                      so values taken at different gains are
+                                      never averaged together.
+*)
+FUNCTION_BLOCK FB_FemtoAmplifier
+VAR_INPUT
+    Cfg : ST_FemtoCfg;
+    Input : REFERENCE TO FB_AnalogInputBase;
+    Overload AT %I* : BOOL;
+END_VAR
+VAR_OUTPUT
+    Status : ST_FemtoStatus;
+    GainBit0 AT %Q* : BOOL;
+    GainBit1 AT %Q* : BOOL;
+    GainBit2 AT %Q* : BOOL;
+    LowNoise AT %Q* : BOOL;
+    DcCoupling AT %Q* : BOOL;
+END_VAR
+VAR
+    State : E_FemtoState := E_FemtoState.SETTLING;
+    // FALSE until the first call after a PLC start.
+    Started : BOOL;
+
+    // Settings in use: the last valid configuration.
+    GainExponentInUse : INT := 3;
+    LowNoiseInUse : BOOL := TRUE;
+    DcCouplingInUse : BOOL := TRUE;
+    SettlingTimeMs : REAL := 150.0;
+    // Gain code on pins 12..10 and gain in V/A of the settings in use.
+    GainCode : INT;
+    GainVPerA : LREAL := 1.0E3;
+
+    // Settling period: length taken at its start, and cycles elapsed.
+    SettlingCycles : UDINT;
+    ElapsedCycles : UDINT;
+    // TRUE in the call in which settling ends.
+    SettlingEnded : BOOL;
+
+    // Condition errors, empty while the condition is absent.
+    InputText : STRING(80);
+    GainText : STRING(80);
+    SettlingText : STRING(80);
+END_VAR
+VAR CONSTANT
+    LOW_NOISE_MIN_EXPONENT : INT := 3;
+    LOW_NOISE_MAX_EXPONENT : INT := 9;
+    HIGH_SPEED_MIN_EXPONENT : INT := 5;
+    HIGH_SPEED_MAX_EXPONENT : INT := 11;
+    LOW_NOISE_RANGE_TEXT : STRING(40) := ' outside 3..9 (low noise)';
+    HIGH_SPEED_RANGE_TEXT : STRING(40) := ' outside 5..11 (high speed)';
+    INPUT_TEXT : STRING(80) := 'Input not assigned (analog input block of the amplifier output)';
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Live configuration. Every setting counts as changed in the first call.
+UpdateSettling(Changed := ApplyConfiguration() OR NOT Started);
+Started := TRUE;
+
+// 2. Outputs
+GainBit0 := GainCode.0;
+GainBit1 := GainCode.1;
+GainBit2 := GainCode.2;
+LowNoise := LowNoiseInUse;
+DcCoupling := DcCouplingInUse;
+
+// 3. Input current, after settling so that the filter restart lands in the
+//    cycle settling ends
+UpdateCurrent();
+
+// 4. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="ApplyConfiguration" Id="{4ff8a9e5-8054-49d4-bab4-da1a8d899fcb}">
+      <Declaration><![CDATA[
+(*
+    Validates the live Cfg and applies the valid parts to the settings in
+    use. Returns TRUE if gain, mode or coupling in use changed.
+*)
+METHOD PRIVATE ApplyConfiguration : BOOL
+VAR
+    MinExponent : INT;
+    MaxExponent : INT;
+    RangeText : STRING(40);
+    Power : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+ApplyConfiguration := FALSE;
+
+// Gain and mode, validated as a pair
+IF Cfg.LowNoise THEN
+    MinExponent := LOW_NOISE_MIN_EXPONENT;
+    MaxExponent := LOW_NOISE_MAX_EXPONENT;
+    RangeText := LOW_NOISE_RANGE_TEXT;
+ELSE
+    MinExponent := HIGH_SPEED_MIN_EXPONENT;
+    MaxExponent := HIGH_SPEED_MAX_EXPONENT;
+    RangeText := HIGH_SPEED_RANGE_TEXT;
+END_IF
+IF Cfg.GainExponent >= MinExponent AND Cfg.GainExponent <= MaxExponent THEN
+    IF Cfg.GainExponent <> GainExponentInUse OR Cfg.LowNoise <> LowNoiseInUse THEN
+        ApplyConfiguration := TRUE;
+    END_IF
+    GainExponentInUse := Cfg.GainExponent;
+    LowNoiseInUse := Cfg.LowNoise;
+    GainCode := Cfg.GainExponent - MinExponent;
+    GainText := '';
+ELSE
+    GainText := CONCAT(CONCAT('GainExponent ', INT_TO_STRING(Cfg.GainExponent)), RangeText);
+END_IF
+
+// Gain in V/A, exact in LREAL for all valid exponents
+GainVPerA := 1.0;
+FOR Power := 1 TO GainExponentInUse DO
+    GainVPerA := GainVPerA * 10.0;
+END_FOR
+
+// Coupling, always valid
+IF Cfg.DcCoupling <> DcCouplingInUse THEN
+    ApplyConfiguration := TRUE;
+END_IF
+DcCouplingInUse := Cfg.DcCoupling;
+
+// Settling time, used from the next settling period on
+IF Cfg.SettlingTimeMs >= 0.0 THEN
+    SettlingTimeMs := Cfg.SettlingTimeMs;
+    SettlingText := '';
+ELSE
+    SettlingText := 'SettlingTimeMs must be >= 0';
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateCurrent" Id="{b7c98860-9217-4674-9e1b-d2c725164b0f}">
+      <Declaration><![CDATA[
+(*
+    Converts the input voltage into the input current with the gain in use,
+    and restarts the input's moving average when settling ends.
+*)
+METHOD PRIVATE UpdateCurrent
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF NOT __ISVALIDREF(Input) THEN
+    InputText := INPUT_TEXT;
+    Status.CurrentA := 0.0;
+    Status.CurrentFilteredA := 0.0;
+    RETURN;
+END_IF
+InputText := '';
+
+Status.CurrentA := LREAL_TO_REAL(REAL_TO_LREAL(Input.Status.Value) / GainVPerA);
+IF State = E_FemtoState.READY AND NOT SettlingEnded THEN
+    Status.CurrentFilteredA := LREAL_TO_REAL(REAL_TO_LREAL(Input.Status.ValueFiltered) / GainVPerA);
+ELSE
+    // The input's average may still contain values from before the change.
+    Status.CurrentFilteredA := Status.CurrentA;
+END_IF
+
+IF SettlingEnded THEN
+    Input.RestartFilter();
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateSettling" Id="{0a0b7139-7a60-464d-a46a-e7edbc8c04c5}">
+      <Declaration><![CDATA[
+(*
+    Starts a settling period on a change of the settings in use, with the
+    settling time valid at that moment, and ends it after that time.
+*)
+METHOD PRIVATE UpdateSettling
+VAR_INPUT
+    Changed : BOOL;     // gain, mode or coupling in use changed in this call
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+SettlingEnded := FALSE;
+
+IF Changed THEN
+    SettlingCycles := F_MsToCycles(TimeMs := SettlingTimeMs);
+    ElapsedCycles := 0;
+    State := E_FemtoState.SETTLING;
+END_IF
+
+IF State = E_FemtoState.SETTLING THEN
+    IF ElapsedCycles >= SettlingCycles THEN
+        State := E_FemtoState.READY;
+        SettlingEnded := TRUE;
+    ELSE
+        ElapsedCycles := ElapsedCycles + 1;
+    END_IF
+END_IF
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{a06864d9-56d5-44b2-97d0-68e148c95aa1}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+
+IF InputText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := InputText;
+ELSIF GainText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := GainText;
+ELSIF SettlingText <> '' THEN
+    Status.Error := TRUE;
+    Status.ErrorText := SettlingText;
+ELSE
+    Status.Error := FALSE;
+    Status.ErrorText := '';
+END_IF
+
+Status.Settling := State = E_FemtoState.SETTLING;
+Status.GainExponent := GainExponentInUse;
+Status.LowNoise := LowNoiseInUse;
+Status.DcCoupling := DcCouplingInUse;
+Status.GainVPerA := LREAL_TO_REAL(GainVPerA);
+Status.SettlingTimeMs := F_CyclesToMs(Cycles := F_MsToCycles(TimeMs := SettlingTimeMs));
+Status.Overload := Overload;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

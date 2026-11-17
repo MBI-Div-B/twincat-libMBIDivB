@@ -16,6 +16,8 @@ VAR
     AiSizeZero : MBIDivB.FB_AnalogInput16;
     AiOverrange : MBIDivB.FB_AnalogInput16;
     AiUnlinked : MBIDivB.FB_AnalogInput32;
+    AiRestartStep : MBIDivB.FB_AnalogInput16;
+    AiRestartSettings : MBIDivB.FB_AnalogInput32;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -29,6 +31,8 @@ FilterSizeReducedRestarts();
 FilterSizeZeroClampedToOne();
 OverrangeSetAndCleared();
 UnlinkedStatusBitsNoError();
+RestartAfterStep();
+RestartKeepsSettings();
 ]]></ST>
     </Implementation>
     <Method Name="ConstantInputFiltered" Id="{faae7e18-d223-4327-8ed7-bf86f08b6b7b}">
@@ -172,6 +176,61 @@ AiOverrange.Overrange := FALSE;
 AiOverrange();
 AssertFalse(Condition := AiOverrange.Status.Error, Message := 'Error cleared');
 AssertEquals_STRING(Expected := '', Actual := AiOverrange.Status.ErrorText, Message := 'ErrorText cleared');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RestartAfterStep" Id="{ed0fd9de-e843-4d79-a4b9-df14db3fe521}">
+      <Declaration><![CDATA[
+METHOD PRIVATE RestartAfterStep
+VAR
+    Cycle : INT;
+    Wrong : INT;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('RestartAfterStep');
+
+AiRestartStep.SetScale(RawFullScale := 1000, ValueFullScale := 1.0);
+AiRestartStep.Cfg.FilterSize := 10;
+AiRestartStep.Raw := 1000;
+FOR Cycle := 1 TO 15 DO
+    AiRestartStep();
+END_FOR
+AiRestartStep.RestartFilter();
+AiRestartStep.Raw := 3000;
+FOR Cycle := 1 TO 12 DO
+    AiRestartStep();
+    IF ABS(AiRestartStep.Status.ValueFiltered - 3.0) > 1.0E-6 THEN
+        Wrong := Wrong + 1;
+    END_IF
+END_FOR
+AssertEquals_INT(Expected := 0, Actual := Wrong, Message := 'calls with ValueFiltered <> 3.0 V after the restart');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RestartKeepsSettings" Id="{ffbeb672-e086-4675-9341-5f0d5534fa92}">
+      <Declaration><![CDATA[
+METHOD PRIVATE RestartKeepsSettings
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('RestartKeepsSettings');
+
+AiRestartSettings.SetScale(RawFullScale := 7812500, ValueFullScale := 10.0);
+AiRestartSettings.Cfg.FilterSize := 20;
+AiRestartSettings.Raw := 3906250;
+AiRestartSettings();
+AiRestartSettings.RestartFilter();
+AiRestartSettings();
+AssertEquals_DINT(Expected := 20, Actual := AiRestartSettings.Cfg.FilterSize, Message := 'FilterSize');
+AssertEquals_DINT(Expected := 7812500, Actual := AiRestartSettings.Status.RawFullScale, Message := 'RawFullScale');
+AssertEquals_REAL(Expected := 10.0, Actual := AiRestartSettings.Status.ValueFullScale, Delta := 1.0E-6, Message := 'ValueFullScale');
+AssertEquals_REAL(Expected := 5.0, Actual := AiRestartSettings.Status.Value, Delta := 1.0E-5, Message := 'Value');
 
 TEST_FINISHED();
 ]]></ST>
