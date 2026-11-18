@@ -46,7 +46,7 @@ Compiled libraries, cached referenced libraries, backup files and refactoring lo
 - **THEN** none matches these patterns
 
 ### Requirement: Unit tests
-A separate TcUnit test PLC project in the repository SHALL test the scaling of analog inputs and outputs, the ramp, the moving average, the timed and trigger-gated counter/timer including missed triggers, waveform stepping and repetition, the trigger edge count, the shutter mode truth table, and the LED maximum on time. The tests SHALL NOT be part of the released library.
+A separate TcUnit test PLC project in the repository SHALL test the scaling of analog inputs and outputs, the ramp, the moving average and its restart, the timed and trigger-gated counter/timer including missed triggers, waveform stepping and repetition, the trigger edge count, the shutter mode truth table, the LED maximum on time, the Femto amplifier bit code, gain validation, settling and current conversion, the end-position switch states, and the shutdown command handling without shutting down the test system. The tests SHALL NOT be part of the released library.
 
 #### Scenario: Trigger edge count regression
 - **WHEN** the test suite runs a trigger with `Count` 20
@@ -59,6 +59,14 @@ A separate TcUnit test PLC project in the repository SHALL test the scaling of a
 #### Scenario: LED timeout
 - **WHEN** the test suite switches the LED on with a maximum on time of 50 ms on a 1 ms task
 - **THEN** a test fails unless the output is deactivated after 50 cycles and the state reads TIMEOUT
+
+#### Scenario: Femto bit code
+- **WHEN** the test suite sets every valid gain exponent in both modes
+- **THEN** a test fails unless the gain and low-noise outputs match the DLPCA-200 bit table and code 7 never appears
+
+#### Scenario: Shutdown without shutting down
+- **WHEN** the test suite issues a shutdown command
+- **THEN** the state sequence and error handling are checked without a shutdown request reaching the operating system
 
 ### Requirement: Release process
 Each release SHALL have a semantic version that is identical in the project properties, the library version symbol and a git tag `vX.Y.Z`. All TcUnit tests SHALL pass before tagging. The compiled library SHALL be published as an asset of the release, not committed. The first release of this design SHALL be 1.0.0.
@@ -75,8 +83,12 @@ Experiment PLC projects SHALL reference this library with a fixed version, not w
 - **THEN** an experiment project keeps building against the version it references until it is changed deliberately
 
 ### Requirement: Target platform
-The library SHALL build with TwinCAT 3.1.4024 and run on CE7/ARMv7 controllers. It SHALL NOT use features that require a later TwinCAT version.
+The library SHALL build with TwinCAT 3.1.4024 and run on CE7/ARMv7 controllers and on x64 controllers with TwinCAT RT x64. It SHALL NOT use features that require a later TwinCAT version.
 
 #### Scenario: Build for the lab controllers
 - **WHEN** the library is built in TwinCAT 3.1.4024 and used by the fiber lab project on its CE7 controller
 - **THEN** it compiles and runs without version-related errors
+
+#### Scenario: Build for the MAXI controller
+- **WHEN** the library is used by the MAXI project on its x64 controller with TwinCAT RT x64 3.1.4024
+- **THEN** it compiles and runs without platform-related errors

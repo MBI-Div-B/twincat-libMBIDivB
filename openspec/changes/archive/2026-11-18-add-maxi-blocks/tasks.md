@@ -40,7 +40,7 @@ Notes for implementation:
 
 - [x] 6.1 Add `Femto1` (input `Ai2`), `Valve1` and `Shutdown1` (testable derivative) to `PRG_EXAMPLE` with simulated inputs, and extend `tools/ads_example.py` with a live gain change that waits for READY and a type check of all new members; verify the script passes against the local runtime and every new Cmd/Cfg/Status member maps to a TwincatAds attribute
 - [x] 6.2 Check naming and documentation conventions in the new sources (prefixes, PascalCase without data type prefixes, `Ms` suffix, headers present); verify the grep of the 1.0.0 release check returns nothing for the new folders
-- [ ] 6.3 Generate `GVL_LibInfo` for 1.1.0, set `Released`, save `MBIDivB.library`, tag `v1.1.0` and publish a GitHub release with the library as asset; verify `pre-commit run --all-files` and the full test suite pass on the tagged commit, and `GVL_LibInfo.Version` reads `1.1.0` on the installed release
+- [x] 6.3 Generate `GVL_LibInfo` for 1.1.0, set `Released`, save `MBIDivB.library`, tag `v1.1.0` and publish a GitHub release with the library as asset; verify `pre-commit run --all-files` and the full test suite pass on the tagged commit, and `GVL_LibInfo.Version` reads `1.1.0` on the installed release
 
 ## Workflow follow-up
 
