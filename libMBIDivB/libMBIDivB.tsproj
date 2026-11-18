@@ -63,7 +63,6 @@
     <ImageData Id="1003">424dd6020000000000003600000028000000100000000e0000000100180000000000a0020000120b0000120b00000000000000000000ff00ffff00ffff00ffff00ffff00ffff00ff808080808080808080808080808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0000000c0c0c0000000808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c000ffffc0c0c000ffff808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0c0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0000000c0c0c0000000808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0ff0000c0c0c0ff0000808080ff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffff00ffc0c0c0c0c0c0c0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0000000c0c0c0000000808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c00000ffc0c0c00000ff808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0c0c0c0c0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0000000c0c0c0000000808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0c0c0c0c0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0008000c0c0c0008000808080ff00ffff00ffff00ffff00ffff00ff0000ff0000ff0000ff0000ff0000ff0000ffc0c0c0c0c0c0c0c0c0c0c0c0808080ff00ffff00ffff00ffff00ffff00ff</ImageData>
   </ImageDatas>
   <Mappings>
-    <MappingInfo Id="#x02030010" Identifier="{00000000-2041-0850-4020-500810000403}"/>
     <OwnerA Name="TIPC^MBIDivB_Tests^MBIDivB_Tests Instance">
       <OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1100)^EL3102 (EL3102)">
         <Link VarA="PlcTask Inputs^PRG_EXAMPLE.Ai1.Raw" VarB="AI Standard Channel 1^Value"/>
@@ -76,6 +75,18 @@
         <Link VarA="PlcTask Inputs^PRG_EXAMPLE.Led1.InfoData2" VarB="DOX Synchron info data^Info data 2"/>
         <Link VarA="PlcTask Inputs^PRG_EXAMPLE.Led1.StatusWord" VarB="DOX Status^Status"/>
         <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Led1.ControlWord" VarB="DOX Control^Control"/>
+      </OwnerB>
+      <OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1100)^Term 5 (EL2124)">
+        <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Femto1.GainBit0" VarB="Channel 1^Output"/>
+        <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Femto1.GainBit1" VarB="Channel 2^Output"/>
+        <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Femto1.GainBit2" VarB="Channel 3^Output"/>
+        <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Femto1.LowNoise" VarB="Channel 4^Output"/>
+      </OwnerB>
+      <OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1100)^Term 6 (EL2124)">
+        <Link VarA="PlcTask Outputs^PRG_EXAMPLE.Femto1.DcCoupling" VarB="Channel 1^Output"/>
+      </OwnerB>
+      <OwnerB Name="TIID^Device 1 (EtherCAT)^Term 1 (EK1100)^Term 7 (EL1124)">
+        <Link VarA="PlcTask Inputs^PRG_EXAMPLE.Femto1.Overload" VarB="Channel 1^Input"/>
       </OwnerB>
     </OwnerA>
   </Mappings>
@@ -1065,13 +1076,97 @@ Bit1: Value smaller than Limit1]]></Comment>
               <CoeProfile ProfileNo="13767561" DisplayName="Ch. 1 - Extended di"/>
             </EtherCAT>
           </Box>
+          <Box Id="5" BoxType="9099">
+            <Name>Term 5 (EL2124)</Name>
+            <ImageId>1003</ImageId>
+            <EtherCAT SlaveType="1" PdiType="#x0104" CycleMBoxPollingTime="0" VendorId="#x00000002" ProductCode="#x084c3052" RevisionNo="#x00120000" RepeatSupport="true" PortPhys="51" MaxSlotCount="256" MaxSlotGroupCount="1" SlotPdoIncrement="1" SlotIndexIncrement="16" Type="EL2124 4Ch. Dig. Output 5V, 20mA" Desc="EL2124" PortABoxInfo="#x01000004">
+              <SyncMan>000f01004400010003000000000000000000000f44090000</SyncMan>
+              <Fmmu>0000000000000000000000020000000001000000000000000000000000000000</Fmmu>
+              <Pdo Name="Channel 1" Index="#x1600" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7000" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 2" Index="#x1601" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7010" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 3" Index="#x1602" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7020" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 4" Index="#x1603" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7030" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+            </EtherCAT>
+          </Box>
+          <Box Id="6" BoxType="9099">
+            <Name>Term 6 (EL2124)</Name>
+            <ImageId>1003</ImageId>
+            <EtherCAT SlaveType="1" PdiType="#x0104" CycleMBoxPollingTime="0" VendorId="#x00000002" ProductCode="#x084c3052" RevisionNo="#x00120000" RepeatSupport="true" PortPhys="51" MaxSlotCount="256" MaxSlotGroupCount="1" SlotPdoIncrement="1" SlotIndexIncrement="16" Type="EL2124 4Ch. Dig. Output 5V, 20mA" Desc="EL2124" PortABoxInfo="#x01000005">
+              <SyncMan>000f01004400010003000000000000000000000f44090000</SyncMan>
+              <Fmmu>0000000000000000000000020000000001000000000000000000000000000000</Fmmu>
+              <Pdo Name="Channel 1" Index="#x1600" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7000" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 2" Index="#x1601" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7010" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 3" Index="#x1602" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7020" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 4" Index="#x1603" InOut="1" Flags="#x0011" SyncMan="0">
+                <Entry Name="Output" Index="#x7030" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+            </EtherCAT>
+          </Box>
+          <Box Id="7" BoxType="9099">
+            <Name>Term 7 (EL1124)</Name>
+            <ImageId>7</ImageId>
+            <EtherCAT SlaveType="1" PdiType="#x0104" CycleMBoxPollingTime="0" VendorId="#x00000002" ProductCode="#x04643052" RevisionNo="#x00120000" RepeatSupport="true" PortPhys="51" MaxSlotCount="256" MaxSlotGroupCount="1" SlotPdoIncrement="1" SlotIndexIncrement="16" Type="EL1124 4Ch. Dig. Input 5V, 10&#181;s, Sensor Power" Desc="EL1124" PortABoxInfo="#x01000006">
+              <SyncMan>001001000000010004000000000000000100001000010000</SyncMan>
+              <Fmmu>0000000000000000000000010000000002000000000000000000000000000000</Fmmu>
+              <Pdo Name="Channel 1" Index="#x1a00" Flags="#x0011" SyncMan="0">
+                <Entry Name="Input" Index="#x6000" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 2" Index="#x1a01" Flags="#x0011" SyncMan="0">
+                <Entry Name="Input" Index="#x6010" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 3" Index="#x1a02" Flags="#x0011" SyncMan="0">
+                <Entry Name="Input" Index="#x6020" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+              <Pdo Name="Channel 4" Index="#x1a03" Flags="#x0011" SyncMan="0">
+                <Entry Name="Input" Index="#x6030" Sub="#x01">
+                  <Type>BIT</Type>
+                </Entry>
+              </Pdo>
+            </EtherCAT>
+          </Box>
         </Box>
         <EtherCAT DcSyncMode="3"/>
       </Device>
     </Io>
     <Plc>
       <Project AmsPort="851" FileArchiveSettings="#x000e" GUID="{75B04F5E-4F8A-462D-A2BE-0703EEBB57C9}" Name="MBIDivB" PrjFilePath="MBIDivB\MBIDivB.plcproj" ReloadTmc="true" SymbolicMapping="true" TmcFilePath="MBIDivB\MBIDivB.tmc">
-        <Instance Id="#x08502000" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef" TmcHash="{27A002EB-EC79-D084-4DB1-ECF21A17C879}" TmcPath="MBIDivB\MBIDivB.tmc">
+        <Instance Id="#x08502000" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef" TmcHash="{887E628B-9409-8629-9217-B969215B2A64}" TmcPath="MBIDivB\MBIDivB.tmc">
           <CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
           <Contexts>
             <Context>
@@ -1083,7 +1178,7 @@ Bit1: Value smaller than Limit1]]></Comment>
         </Instance>
       </Project>
       <Project AmsPort="852" FileArchiveSettings="#x000e" GUID="{0D1CFF21-19FB-41DC-808B-F3BDE03EB303}" Name="MBIDivB_Tests" PrjFilePath="MBIDivB_Tests\MBIDivB_Tests.plcproj" ReloadTmc="true" SymbolicMapping="true" TmcFilePath="MBIDivB_Tests\MBIDivB_Tests.tmc">
-        <Instance Id="#x08502040" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef" TmcHash="{46AD2A77-88B1-DFD1-9076-2A10407AA177}" TmcPath="MBIDivB_Tests\MBIDivB_Tests.tmc">
+        <Instance Id="#x08502040" KeepUnrestoredLinks="2" TcSmClass="TComPlcObjDef" TmcHash="{A1C806F6-CA7C-3979-B826-D358D6A7B30A}" TmcPath="MBIDivB_Tests\MBIDivB_Tests.tmc">
           <CLSID ClassFactory="TcPlc30">{08500001-0000-0000-F000-000000000064}</CLSID>
           <Contexts>
             <Context>
@@ -1105,6 +1200,26 @@ Bit1: Value smaller than Limit1]]></Comment>
             <Var>
               <Name>PRG_EXAMPLE.Ao1.Raw</Name>
               <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Femto1.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Femto1.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Femto1.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Femto1.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Femto1.LowNoise</Name>
+              <Type>BOOL</Type>
             </Var>
             <Var>
               <Name>PRG_EXAMPLE.Led1.ControlWord</Name>
@@ -1185,6 +1300,366 @@ Bit1: Value smaller than Limit1]]></Comment>
             <Var>
               <Name>PRG_TEST.AnalogOutputTest.AoZeroVelocity.Raw</Name>
               <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.LowNoise</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.DcCoupling</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.GainBit0</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.GainBit1</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.GainBit2</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.LowNoise</Name>
+              <Type>BOOL</Type>
             </Var>
             <Var>
               <Name>PRG_TEST.LedControlTest.LedCurrent.ControlWord</Name>
@@ -1390,6 +1865,10 @@ Bit1: Value smaller than Limit1]]></Comment>
               <Type>BOOL</Type>
             </Var>
             <Var>
+              <Name>PRG_EXAMPLE.Femto1.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
               <Name>PRG_EXAMPLE.Flow1.SensorInput</Name>
               <Type>BOOL</Type>
             </Var>
@@ -1407,6 +1886,14 @@ Bit1: Value smaller than Limit1]]></Comment>
             </Var>
             <Var>
               <Name>PRG_EXAMPLE.Shutter1.HwInput</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Valve1.ClosedSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_EXAMPLE.Valve1.OpenSwitch</Name>
               <Type>BOOL</Type>
             </Var>
             <Var>
@@ -1506,6 +1993,38 @@ Bit1: Value smaller than Limit1]]></Comment>
               <Type>BOOL</Type>
             </Var>
             <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartSettings.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartSettings.Raw</Name>
+              <Type>DINT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartSettings.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartSettings.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartStep.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartStep.Raw</Name>
+              <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartStep.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.AnalogInputTest.AiRestartStep.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
               <Name>PRG_TEST.AnalogInputTest.AiSizeZero.Overrange</Name>
               <Type>BOOL</Type>
             </Var>
@@ -1551,6 +2070,166 @@ Bit1: Value smaller than Limit1]]></Comment>
             </Var>
             <Var>
               <Name>PRG_TEST.AnalogInputTest.AiZeroScale.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveFault.ClosedSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveFault.OpenSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveNeither.ClosedSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveNeither.OpenSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveTable.ClosedSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.EndPositionSwitchesTest.ValveTable.OpenSwitch</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiCurrent.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiCurrent.Raw</Name>
+              <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiCurrent.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiCurrent.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiMixing.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiMixing.Raw</Name>
+              <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiMixing.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiMixing.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiNegative.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiNegative.Raw</Name>
+              <Type>DINT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiNegative.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiNegative.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiShared.Overrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiShared.Raw</Name>
+              <Type>INT</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiShared.TerminalError</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.AiShared.Underrange</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoAc.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoChange.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoCurrent.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoHighest.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoLowest.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMissing.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoMixing.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoModeSwitch.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegative.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoNegativeTime.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoOverload.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoRange.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoReadback.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoSettling.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoStartup.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTable.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoTimeChange.Overload</Name>
+              <Type>BOOL</Type>
+            </Var>
+            <Var>
+              <Name>PRG_TEST.FemtoAmplifierTest.FemtoZero.Overload</Name>
               <Type>BOOL</Type>
             </Var>
             <Var>
