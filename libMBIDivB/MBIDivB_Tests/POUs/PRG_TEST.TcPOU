@@ -17,6 +17,9 @@ VAR
     FlowMeterTest : FB_FlowMeterTest;
     ShutterControlTest : FB_ShutterControlTest;
     LedControlTest : FB_LedControlTest;
+    FemtoAmplifierTest : FB_FemtoAmplifierTest;
+    EndPositionSwitchesTest : FB_EndPositionSwitchesTest;
+    PlcShutdownTest : FB_PlcShutdownTest;
 END_VAR
 ]]></Declaration>
     <Implementation>

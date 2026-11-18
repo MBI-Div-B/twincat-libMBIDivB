@@ -34,6 +34,11 @@
             Status.Value = Raw x ValueFullScale / RawFullScale. A RawFullScale
             of 0 is rejected with an error, and the previous scaling stays.
             Returns TRUE if accepted. An accepted call clears that error.
+        RestartFilter()
+            Restarts the moving average: from the next call on,
+            ValueFiltered is computed only from values received in that and
+            later calls. FilterSize, the scaling and the error status do not
+            change. Used by FB_FemtoAmplifier after a gain change.
 
     Cfg (written by the client):
         FilterSize      DINT        live; number of values averaged into

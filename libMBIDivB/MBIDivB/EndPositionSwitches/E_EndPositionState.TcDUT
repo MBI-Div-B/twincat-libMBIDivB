@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <DUT Name="E_EndPositionState" Id="{7e42fa40-1e09-4244-8809-f724c746ea9c}">
+    <Declaration><![CDATA[
+(*
+    States of FB_EndPositionSwitches, reported as Status.State (code) and
+    Status.StateText (name). Code = open switch + 2 x closed switch.
+*)
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE E_EndPositionState :
+(
+    BETWEEN := 0,   // neither switch active: moving, or switches disconnected
+    OPEN := 1,      // only the open switch active
+    CLOSED := 2,    // only the closed switch active
+    FAULT := 3      // both switches active
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

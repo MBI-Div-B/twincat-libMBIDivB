@@ -70,6 +70,27 @@
     <Compile Include="CounterTimer\ST_CtStatus.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="EndPositionSwitches\E_EndPositionState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="EndPositionSwitches\FB_EndPositionSwitches.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="EndPositionSwitches\ST_EndPositionStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FemtoAmplifier\E_FemtoState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FemtoAmplifier\FB_FemtoAmplifier.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FemtoAmplifier\ST_FemtoCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FemtoAmplifier\ST_FemtoStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="FlowMeter\FB_FlowMeter.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -117,6 +138,21 @@
     <Compile Include="MultiTrigger\ST_TrigStatus.TcDUT">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="PlcShutdown\E_ShutdownState.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PlcShutdown\FB_PlcShutdown.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PlcShutdown\ST_ShutdownCfg.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PlcShutdown\ST_ShutdownCmd.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PlcShutdown\ST_ShutdownStatus.TcDUT">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ShutterControl\FB_ShutterControl.TcPOU">
       <SubType>Code</SubType>
     </Compile>
@@ -136,10 +172,13 @@
     <Folder Include="AnalogOutput"/>
     <Folder Include="Common"/>
     <Folder Include="CounterTimer"/>
+    <Folder Include="EndPositionSwitches"/>
+    <Folder Include="FemtoAmplifier"/>
     <Folder Include="FlowMeter"/>
     <Folder Include="GVLs"/>
     <Folder Include="LedControl"/>
     <Folder Include="MultiTrigger"/>
+    <Folder Include="PlcShutdown"/>
     <Folder Include="ShutterControl"/>
     <Folder Include="Version"/>
   </ItemGroup>
@@ -156,6 +195,10 @@
     <PlaceholderReference Include="Tc2_System">
       <DefaultResolution>Tc2_System, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc2_System</Namespace>
+    </PlaceholderReference>
+    <PlaceholderReference Include="Tc2_Utilities">
+      <DefaultResolution>Tc2_Utilities, * (Beckhoff Automation GmbH)</DefaultResolution>
+      <Namespace>Tc2_Utilities</Namespace>
     </PlaceholderReference>
     <PlaceholderReference Include="Tc3_Module">
       <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
@@ -200,7 +243,7 @@
     <Application>{c1129484-9b40-4b6c-b171-4f0ad1261262}</Application>
     <Author>Michael Schneider</Author>
     <Company>MBI Div-B</Company>
-    <Description>Function blocks for data acquisition and experiment control (analog I/O, counter/timer, triggers, shutter, LED, flow meter).</Description>
+    <Description>Function blocks for data acquisition and experiment control (analog I/O, counter/timer, triggers, shutter, LED, flow meter, Femto amplifier, end-position switches, PLC shutdown).</Description>
     <DownloadApplicationInfo>true</DownloadApplicationInfo>
     <FileVersion>1.0.0.0</FileVersion>
     <GenerateTpy>false</GenerateTpy>
@@ -211,7 +254,7 @@
     <Name>MBIDivB</Name>
     <ProgramVersion>3.1.4024.0</ProgramVersion>
     <ProjectGuid>{75b04f5e-4f8a-462d-a2be-0703eebb57c9}</ProjectGuid>
-    <ProjectVersion>1.0.0.0</ProjectVersion>
+    <ProjectVersion>1.1.0.0</ProjectVersion>
     <Released>true</Released>
     <SchemaVersion>2.0</SchemaVersion>
     <SubObjectsSortedByName>True</SubObjectsSortedByName>

@@ -1,0 +1,201 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_PlcShutdown" Id="{9c7116e5-f5e0-4634-abea-0a3f04d52ba7}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    FB_PlcShutdown - shut down the PLC's operating system on a client command
+
+    WARNING: an accepted command shuts down the WHOLE OPERATING SYSTEM of the
+    PLC that runs this block (e.g. Windows or Windows CE), not only the PLC
+    runtime. There is no confirmation step: a single command flag suffices.
+    Afterwards the PLC only starts again when its power is cycled.
+
+    Lets a client, e.g. the TwincatAds Tango server, shut the PLC down safely
+    before its power is switched off. The request goes to the local system
+    only (Tc2_Utilities.NT_Shutdown with NETID ''); the block never shuts
+    down or reboots another PLC.
+
+    Use from ST, every cycle:
+        Shutdown1();
+
+    Methods (ST):
+        Shutdown() : BOOL   same as Cmd.Shutdown; TRUE if accepted. Call it
+                            before the block call, which sends the request.
+
+    Cmd (written by the client, cleared by the block when processed):
+        Shutdown  BOOL  request the shutdown after Cfg.DelayMs. Processed in
+                        the block call: write TRUE, wait until the flag reads
+                        FALSE, then read Status (README.md, "Command
+                        handshake"). Rejected while not IDLE, or if
+                        Cfg.DelayMs < 0.
+
+    Cfg (written by the client):
+        DelayMs   REAL  applied at Cmd.Shutdown; ms, >= 0, rounded to whole
+                        seconds (2400 -> 2000); default 3000
+
+    Status (read only):
+        State      INT         0 IDLE, 1 REQUESTING, 2 SHUTTING_DOWN (see
+                               E_ShutdownState). REQUESTING while the request
+                               is sent to the operating system,
+                               SHUTTING_DOWN once it has been accepted, until
+                               the operating system stops the runtime. A
+                               failed request returns to IDLE.
+        StateText  STRING(20)  name of State
+        Error      BOOL        TRUE after a rejected command or a failed
+                               request, until the next accepted command
+        ErrorText  STRING(80)  e.g. 'Shutdown rejected: DelayMs must be >= 0',
+                               'Shutdown failed: error 1793' (ADS error code)
+        DelayMs    REAL        ms; effective delay of the last accepted
+                               command, whole seconds; 0 before the first
+
+    For tests: derive from this block and override the protected method
+    SendRequest, so that no request reaches the operating system.
+*)
+FUNCTION_BLOCK FB_PlcShutdown
+VAR_INPUT
+    Cmd : ST_ShutdownCmd;
+    Cfg : ST_ShutdownCfg;
+END_VAR
+VAR_OUTPUT
+    Status : ST_ShutdownStatus;
+END_VAR
+VAR
+    State : E_ShutdownState := E_ShutdownState.IDLE;
+    // Delay of the accepted command in whole seconds.
+    DelayS : UDINT;
+    // Result of the last SendRequest call.
+    RequestBusy : BOOL;
+    RequestFailed : BOOL;
+    RequestErrorId : UDINT;
+    // Used by SendRequest only.
+    Request : NT_Shutdown;
+
+    // Error of the last rejected command or failed request, kept until a
+    // command is accepted.
+    CmdError : BOOL;
+    CmdErrorText : STRING(80);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+// 1. Commands
+IF Cmd.Shutdown THEN
+    Cmd.Shutdown := FALSE;
+    Shutdown();
+END_IF
+
+// 2. Request to the operating system, until it has been answered
+IF State = E_ShutdownState.REQUESTING THEN
+    SendRequest(DelayS := DelayS, Start := TRUE, Busy => RequestBusy, Error => RequestFailed, ErrorId => RequestErrorId);
+    IF NOT RequestBusy THEN
+        // Reset the start edge, so that a later request is sent again.
+        SendRequest(DelayS := DelayS, Start := FALSE);
+        IF RequestFailed THEN
+            State := E_ShutdownState.IDLE;
+            CmdError := TRUE;
+            CmdErrorText := CONCAT('Shutdown failed: error ', UDINT_TO_STRING(RequestErrorId));
+        ELSE
+            State := E_ShutdownState.SHUTTING_DOWN;
+        END_IF
+    END_IF
+END_IF
+
+// 3. Status
+UpdateStatus();
+]]></ST>
+    </Implementation>
+    <Method Name="Reject" Id="{23972bc4-390f-47c0-9d86-5abcc725e903}">
+      <Declaration><![CDATA[
+(*
+    Reports a rejected command. The state does not change.
+*)
+METHOD PRIVATE Reject
+VAR_INPUT
+    Text : STRING(80);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CmdError := TRUE;
+CmdErrorText := Text;
+UpdateStatus();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SendRequest" Id="{fa8c898f-cd03-4de9-80ea-ea31b96303ff}">
+      <Declaration><![CDATA[
+(*
+    Sends the shutdown request to the local operating system: one
+    NT_Shutdown, started on a rising edge of Start. Called in every cycle
+    while REQUESTING, until Busy is FALSE.
+
+    Protected so that a test derivative can override it and simulate busy,
+    success and failure without shutting down the test system.
+*)
+METHOD PROTECTED SendRequest
+VAR_INPUT
+    DelayS : UDINT;     // delay in seconds
+    Start : BOOL;       // a rising edge sends the request
+END_VAR
+VAR_OUTPUT
+    Busy : BOOL;        // request in progress
+    Error : BOOL;       // request failed (valid when Busy is FALSE)
+    ErrorId : UDINT;    // ADS error code of the failure
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Request(NETID := '', DELAY := UDINT_TO_DWORD(DelayS), START := Start);
+Busy := Request.BUSY;
+Error := Request.ERR;
+ErrorId := Request.ERRID;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Shutdown" Id="{24c6396c-86f2-4ab5-b3b7-f14557f42546}">
+      <Declaration><![CDATA[
+(*
+    Requests the shutdown of the operating system after Cfg.DelayMs; same as
+    Cmd.Shutdown. Returns TRUE if accepted.
+*)
+METHOD Shutdown : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Shutdown := FALSE;
+
+IF State <> E_ShutdownState.IDLE THEN
+    Reject('Shutdown rejected: shutdown already requested');
+    RETURN;
+END_IF
+IF Cfg.DelayMs < 0.0 THEN
+    Reject('Shutdown rejected: DelayMs must be >= 0');
+    RETURN;
+END_IF
+
+DelayS := LREAL_TO_UDINT(REAL_TO_LREAL(Cfg.DelayMs) / 1000.0);
+Status.DelayMs := UDINT_TO_REAL(DelayS) * 1000.0;
+State := E_ShutdownState.REQUESTING;
+
+CmdError := FALSE;
+CmdErrorText := '';
+UpdateStatus();
+Shutdown := TRUE;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateStatus" Id="{1edd200d-76ae-4534-8890-4b7a3f74fa0a}">
+      <Declaration><![CDATA[
+METHOD PRIVATE UpdateStatus
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+Status.State := TO_INT(State);
+Status.StateText := TO_STRING(State);
+Status.Error := CmdError;
+Status.ErrorText := CmdErrorText;
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

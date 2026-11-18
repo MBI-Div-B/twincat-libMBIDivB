@@ -1,0 +1,174 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<TcPlcObject Version="1.1.0.1">
+  <POU Name="FB_PlcShutdownTest" Id="{c41ba54c-d1ac-4425-88eb-3b2d5a3b19f3}" SpecialFunc="None">
+    <Declaration><![CDATA[
+(*
+    Tests of FB_PlcShutdown (specs/plc-shutdown). Only FB_PlcShutdownTestable
+    is used, so no request reaches the operating system of the test PC.
+*)
+FUNCTION_BLOCK FB_PlcShutdownTest EXTENDS TcUnit.FB_TestSuite
+VAR
+    ShutdownHandshake : FB_PlcShutdownTestable;
+    ShutdownMethod : FB_PlcShutdownTestable;
+    ShutdownRounded : FB_PlcShutdownTestable;
+    ShutdownNegative : FB_PlcShutdownTestable;
+    ShutdownSecond : FB_PlcShutdownTestable;
+    ShutdownFails : FB_PlcShutdownTestable;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+CommandHandshake();
+ShutdownMethodAccepted();
+DelayRounded();
+NegativeDelayRejected();
+SecondCommandRejected();
+RequestFails();
+]]></ST>
+    </Implementation>
+    <Method Name="CommandHandshake" Id="{2af5dd30-dd22-4264-9347-fb52b3cc94af}">
+      <Declaration><![CDATA[
+METHOD PRIVATE CommandHandshake
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('CommandHandshake');
+
+ShutdownHandshake.BusyCalls := 2;
+ShutdownHandshake.Cmd.Shutdown := TRUE;
+ShutdownHandshake();
+AssertFalse(Condition := ShutdownHandshake.Cmd.Shutdown, Message := 'flag cleared');
+AssertEquals_INT(Expected := 1, Actual := ShutdownHandshake.Status.State, Message := 'REQUESTING while busy');
+AssertEquals_INT(Expected := 1, Actual := ShutdownHandshake.Requests, Message := 'one request sent');
+AssertEquals_UDINT(Expected := 3, Actual := ShutdownHandshake.LastDelayS, Message := 'delay 3 s');
+AssertEquals_REAL(Expected := 3000.0, Actual := ShutdownHandshake.Status.DelayMs, Delta := 1.0E-3, Message := 'Status.DelayMs');
+ShutdownHandshake();
+AssertEquals_INT(Expected := 1, Actual := ShutdownHandshake.Status.State, Message := 'REQUESTING in the second busy call');
+ShutdownHandshake();
+AssertEquals_INT(Expected := 2, Actual := ShutdownHandshake.Status.State, Message := 'SHUTTING_DOWN once accepted');
+AssertEquals_STRING(Expected := 'SHUTTING_DOWN', Actual := ShutdownHandshake.Status.StateText, Message := 'StateText');
+AssertFalse(Condition := ShutdownHandshake.Status.Error, Message := 'Error');
+AssertEquals_INT(Expected := 1, Actual := ShutdownHandshake.Requests, Message := 'still one request');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DelayRounded" Id="{c8351ef8-eaf3-4826-aff3-d7bbbd53aa1f}">
+      <Declaration><![CDATA[
+METHOD PRIVATE DelayRounded
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('DelayRounded');
+
+ShutdownRounded.Cfg.DelayMs := 2400.0;
+ShutdownRounded.Cmd.Shutdown := TRUE;
+ShutdownRounded();
+AssertEquals_REAL(Expected := 2000.0, Actual := ShutdownRounded.Status.DelayMs, Delta := 1.0E-3, Message := 'Status.DelayMs');
+AssertEquals_UDINT(Expected := 2, Actual := ShutdownRounded.LastDelayS, Message := 'request delay in s');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="NegativeDelayRejected" Id="{d724bf43-0144-4090-b4c9-db31ebd29fc4}">
+      <Declaration><![CDATA[
+METHOD PRIVATE NegativeDelayRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('NegativeDelayRejected');
+
+ShutdownNegative.Cfg.DelayMs := -1.0;
+ShutdownNegative.Cmd.Shutdown := TRUE;
+ShutdownNegative();
+AssertFalse(Condition := ShutdownNegative.Cmd.Shutdown, Message := 'flag cleared');
+AssertEquals_INT(Expected := 0, Actual := ShutdownNegative.Status.State, Message := 'stays IDLE');
+AssertTrue(Condition := ShutdownNegative.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(ShutdownNegative.Status.ErrorText, 'DelayMs') > 0, Message := 'names DelayMs');
+AssertEquals_INT(Expected := 0, Actual := ShutdownNegative.Requests, Message := 'no request sent');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="RequestFails" Id="{cb5a4a8e-201b-4758-a34d-8731f6f699b5}">
+      <Declaration><![CDATA[
+METHOD PRIVATE RequestFails
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('RequestFails');
+
+ShutdownFails.BusyCalls := 1;
+ShutdownFails.Fail := TRUE;
+ShutdownFails.FailErrorId := 1793;
+ShutdownFails.Cmd.Shutdown := TRUE;
+ShutdownFails();
+ShutdownFails();
+AssertEquals_INT(Expected := 0, Actual := ShutdownFails.Status.State, Message := 'back to IDLE');
+AssertTrue(Condition := ShutdownFails.Status.Error, Message := 'Error');
+AssertTrue(Condition := FIND(ShutdownFails.Status.ErrorText, '1793') > 0, Message := 'ErrorText contains the error code');
+
+// A later command sends a new request.
+ShutdownFails.Fail := FALSE;
+ShutdownFails.Cmd.Shutdown := TRUE;
+ShutdownFails();
+ShutdownFails();
+AssertEquals_INT(Expected := 2, Actual := ShutdownFails.Requests, Message := 'second request sent');
+AssertEquals_INT(Expected := 2, Actual := ShutdownFails.Status.State, Message := 'SHUTTING_DOWN after the retry');
+AssertFalse(Condition := ShutdownFails.Status.Error, Message := 'accepted command clears the error');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SecondCommandRejected" Id="{e5bd1c34-2f0a-4b8e-9d47-6a3c2b1f8e90}">
+      <Declaration><![CDATA[
+METHOD PRIVATE SecondCommandRejected
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('SecondCommandRejected');
+
+ShutdownSecond.BusyCalls := 0;
+ShutdownSecond.Cmd.Shutdown := TRUE;
+ShutdownSecond();
+AssertEquals_INT(Expected := 2, Actual := ShutdownSecond.Status.State, Message := 'SHUTTING_DOWN');
+ShutdownSecond.Cmd.Shutdown := TRUE;
+ShutdownSecond();
+AssertFalse(Condition := ShutdownSecond.Cmd.Shutdown, Message := 'flag cleared');
+AssertEquals_INT(Expected := 2, Actual := ShutdownSecond.Status.State, Message := 'stays SHUTTING_DOWN');
+AssertTrue(Condition := ShutdownSecond.Status.Error, Message := 'rejected');
+AssertEquals_INT(Expected := 1, Actual := ShutdownSecond.Requests, Message := 'no second request');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ShutdownMethodAccepted" Id="{3b8f2d71-5c4e-4a19-8e6d-0f2a9c7b1d53}">
+      <Declaration><![CDATA[
+METHOD PRIVATE ShutdownMethodAccepted
+VAR
+    Accepted : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+TEST('ShutdownMethodAccepted');
+
+ShutdownMethod.BusyCalls := 0;
+Accepted := ShutdownMethod.Shutdown();
+AssertTrue(Condition := Accepted, Message := 'Shutdown() returns TRUE');
+AssertEquals_INT(Expected := 1, Actual := ShutdownMethod.Status.State, Message := 'REQUESTING before the block call');
+ShutdownMethod();
+AssertEquals_INT(Expected := 2, Actual := ShutdownMethod.Status.State, Message := 'SHUTTING_DOWN after the block call');
+AssertEquals_INT(Expected := 1, Actual := ShutdownMethod.Requests, Message := 'one request sent');
+
+TEST_FINISHED();
+]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

@@ -43,6 +43,23 @@ END_VAR
 // Intentionally empty: the typed blocks call Update().
 ]]></ST>
     </Implementation>
+    <Method Name="RestartFilter" Id="{86a95581-cc73-4893-a5ac-529cbebe39c0}">
+      <Declaration><![CDATA[
+(*
+    Restarts the moving average: from the next call on, Status.ValueFiltered
+    is computed only from values received in that and later calls.
+    Cfg.FilterSize, the scaling and Status.Error/ErrorText do not change.
+*)
+METHOD RestartFilter
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+FilterCount := 0;
+FilterIndex := 1;
+FilterSum := 0.0;
+]]></ST>
+      </Implementation>
+    </Method>
     <Method Name="SetScale" Id="{53fe766c-e551-463f-b472-01683bd69bc2}">
       <Declaration><![CDATA[
 (*
